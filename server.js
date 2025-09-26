@@ -1,9 +1,11 @@
 const express = require("express");
-const { chromium } = require("playwright");  // only chromium
+const { chromium } = require("playwright");
+
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public")); // serve your index.html
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -12,9 +14,13 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    browser = await chromium.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+
     const page = await browser.newPage();
     await page.goto(target, { waitUntil: "networkidle" });
+
     const content = await page.content();
     res.send(content);
   } catch (err) {
