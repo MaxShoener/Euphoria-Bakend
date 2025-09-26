@@ -4,11 +4,8 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
-
-// Serve static files (index.html, CSS, JS)
 app.use(express.static("public"));
 
-// Proxy route
 app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL parameter");
