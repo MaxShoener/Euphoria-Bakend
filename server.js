@@ -1,7 +1,6 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
 app.get("/proxy", async (req, res) => {
@@ -10,17 +9,18 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    browser = await puppeteer.launch({ args: ["--no-sandbox"] });
-    const page = await browser.newPage();
+    browser = await puppeteer.launch({
+      executablePath: "/opt/google/chrome/chrome", // preinstalled Chrome on Render
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-    // Optional: set user agent to desktop
+    const page = await browser.newPage();
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
       "(KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
     );
 
     await page.goto(url, { waitUntil: "networkidle2" });
-
     const html = await page.content();
 
     res.set("Content-Type", "text/html");
