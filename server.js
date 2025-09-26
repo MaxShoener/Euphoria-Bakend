@@ -5,9 +5,7 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(express.urlencoded({ extended: true }));
-
-// Serve the UI
+// Serve UI
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -19,8 +17,13 @@ app.get("/proxy", async (req, res) => {
 
   try {
     const response = await fetch(target);
-    const text = await response.text();
-    res.send(text);
+    let html = await response.text();
+
+    // Rewrite all links to go through proxy
+    html = html.replace(/href="(http[s]?:\/\/[^"]+)"/gi, 'href="/proxy?url=$1"');
+    html = html.replace(/src="(http[s]?:\/\/[^"]+)"/gi, 'src="/proxy?url=$1"');
+
+    res.send(html);
   } catch (err) {
     res.status(500).send(`Error loading ${target}: ${err.message}`);
   }
