@@ -1,35 +1,38 @@
-const express = require("express");
-const puppeteer = require("puppeteer");
-const cors = require("cors");
+const express = require('express');
+const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(cors());
-app.use(express.json());
+// Serve static files (index.html)
+app.use(express.static(__dirname));
 
-app.get("/proxy", async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send("Missing URL parameter");
+// Proxy endpoint
+app.get('/proxy', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('No URL provided');
 
-  let browser;
   try {
-    browser = await puppeteer.launch({
+    const browser = await puppeteer.launch({
+      executablePath: puppeteer.executablePath(),
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(url, { waitUntil: 'networkidle2' });
 
     const content = await page.content();
+    await browser.close();
+
     res.send(content);
   } catch (err) {
-    res.status(500).send(`Error loading ${target}: ${err.message}`);
-  } finally {
-    if (browser) await browser.close();
+    console.error(err);
+    res.status(500).send('Proxy failed');
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Proxy running on http://localhost:${PORT}`);
+  console.log(`Euphoria proxy running on port ${PORT}`);
 });
