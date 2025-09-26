@@ -1,38 +1,45 @@
+const path = require('path');
 const express = require('express');
-const playwright = require('playwright');
+const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); // serve index.html
+// 1. Serve static files (CSS, JS, images) from /public
+app.use(express.static('public'));
 
+// 2. Route: Homepage (serve your index.html)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 3. Example Playwright proxy route
 app.get('/proxy', async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send('Missing URL parameter');
+  const targetUrl = req.query.url;
 
-  let browser;
+  if (!targetUrl) {
+    return res.status(400).send('Missing ?url= parameter');
+  }
+
   try {
-    const executablePath = playwright.chromium.executablePath();
-
-    browser = await playwright.chromium.launch({
-      headless: true,
-      executablePath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    const browser = await chromium.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: true
     });
-
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: 'networkidle' });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
 
     const content = await page.content();
+    await browser.close();
+
     res.send(content);
   } catch (err) {
-    res.status(500).send(`Error loading ${target}: ${err.message}`);
-  } finally {
-    if (browser) await browser.close();
+    console.error('Proxy error:', err);
+    res.status(500).send(`Error loading ${targetUrl}: ${err.message}`);
   }
 });
 
+// 4. Start the server
 app.listen(PORT, () => {
-  console.log(`🚀 Euphoria proxy running on port ${PORT}`);
+  console.log(`🚀 Euphoria running at http://localhost:${PORT}`);
 });
