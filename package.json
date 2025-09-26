@@ -1,6 +1,7 @@
 {
-  "name": "wisp-proxy-playwright",
+  "name": "euphoria-proxy",
   "version": "1.0.0",
+  "description": "Headless browser proxy with Playwright",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -8,6 +9,12 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.43.0"
-  }
+    "playwright": "^1.43.0",
+    "node-fetch": "^2.6.12"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Max Shoener",
+  "license": "MIT"
 }
