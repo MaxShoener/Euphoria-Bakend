@@ -1,7 +1,7 @@
 {
   "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Headless proxy server using Playwright",
+  "description": "Euphoria headless proxy server using Playwright",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
