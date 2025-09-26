@@ -4,19 +4,20 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Detect Chrome binary dynamically
+// Detect Chrome binary dynamically on Render
 let chromePath = null;
 const basePath = "/opt/render/project/.chromium-browser";
+
 if (fs.existsSync(basePath)) {
   const versions = fs.readdirSync(basePath);
   if (versions.length > 0) {
     chromePath = `${basePath}/${versions[0]}/chrome`;
-    console.log("Detected Chrome at:", chromePath);
+    console.log("Detected Chrome binary at:", chromePath);
   }
 }
 
 if (!chromePath) {
-  console.error("No Chrome binary found. Puppeteer-core cannot launch!");
+  console.error("No Chrome binary found. Puppeteer cannot launch!");
 }
 
 app.get("/proxy", async (req, res) => {
@@ -26,7 +27,7 @@ app.get("/proxy", async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      executablePath: chromePath,
+      executablePath: chromePath,           // Must specify executable
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
