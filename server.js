@@ -1,45 +1,67 @@
-import express from "express";
-import cors from "cors";
-import { chromium } from "playwright-core";
+const express = require("express");
+const fetch = require("node-fetch");
+const { URL } = require("url");
 
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3000;
+
+// Middleware for JSON parsing
 app.use(express.json());
 
-// Replace with your Browserless.io WebSocket endpoint
-const BROWSER_WS_ENDPOINT = "wss://chrome.browserless.io?token=YOUR_API_KEY";
-
-// Simple logger middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
-
-// Endpoint to load any URL and return a screenshot
-app.post("/load", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "URL missing" });
-
-  let browser;
+// Proxy endpoint
+app.get("/proxy", async (req, res) => {
   try {
-    browser = await chromium.connectOverCDP(BROWSER_WS_ENDPOINT);
-    const [page] = await browser.pages();
+    const targetUrl = req.query.url;
+    if (!targetUrl) {
+      return res.status(400).send("Missing ?url parameter");
+    }
 
-    console.log(`Navigating to: ${url}`);
-    await page.goto(url, { waitUntil: "networkidle" });
+    let finalUrl = targetUrl.startsWith("http")
+      ? targetUrl
+      : "https://" + targetUrl;
 
-    // Capture screenshot (optional, can remove if not needed)
-    const screenshot = await page.screenshot({ encoding: "base64" });
+    const response = await fetch(finalUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 Euphoria-Proxy" },
+    });
 
-    await browser.close();
-    res.json({ success: true, screenshot });
+    let contentType = response.headers.get("content-type");
+    let body = await response.text();
+
+    // Rewriter only for HTML
+    if (contentType && contentType.includes("text/html")) {
+      const base = new URL(finalUrl);
+
+      // Rewrite all src/href/form actions to go through proxy
+      body = body.replace(
+        /(href|src|action)=["'](.*?)["']/gi,
+        (match, attr, value) => {
+          if (value.startsWith("http")) {
+            return `${attr}="/proxy?url=${encodeURIComponent(value)}"`;
+          } else if (value.startsWith("//")) {
+            return `${attr}="/proxy?url=${encodeURIComponent(
+              base.protocol + value
+            )}"`;
+          } else if (value.startsWith("/")) {
+            return `${attr}="/proxy?url=${encodeURIComponent(
+              base.origin + value
+            )}"`;
+          } else {
+            return `${attr}="/proxy?url=${encodeURIComponent(
+              base.origin + "/" + value
+            )}"`;
+          }
+        }
+      );
+    }
+
+    res.setHeader("Content-Type", contentType || "text/html");
+    res.send(body);
   } catch (err) {
-    console.error("Error loading page:", err);
-    if (browser) await browser.close();
-    res.status(500).json({ error: "Failed to load page" });
+    console.error("Proxy error:", err.message);
+    res.status(500).send("Proxy Error: " + err.message);
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
