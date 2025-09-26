@@ -3,13 +3,11 @@ const puppeteer = require("puppeteer");
 const cors = require("cors");
 
 const app = express();
-const PORT = 10000;
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Proxy route
 app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL parameter");
@@ -20,7 +18,6 @@ app.get("/proxy", async (req, res) => {
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
-
     const page = await browser.newPage();
     await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
 
@@ -34,5 +31,5 @@ app.get("/proxy", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Wisp proxy running on http://localhost:${PORT}`);
+  console.log(`Proxy running on http://localhost:${PORT}`);
 });
