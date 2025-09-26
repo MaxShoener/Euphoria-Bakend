@@ -1,16 +1,11 @@
 const express = require("express");
-const path = require("path");
-const { chromium } = require("playwright-chromium");
+const { chromium } = require("playwright");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
-
-// Serve UI
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.use(express.json());
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -20,18 +15,14 @@ app.get("/proxy", async (req, res) => {
   let browser;
   try {
     browser = await chromium.launch({
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
     const page = await browser.newPage();
     await page.goto(target, { waitUntil: "networkidle" });
 
-    let content = await page.content();
-
-    // Rewrite links to go through proxy
-    content = content.replace(/href="(http[s]?:\/\/[^"]+)"/gi, 'href="/proxy?url=$1"');
-    content = content.replace(/src="(http[s]?:\/\/[^"]+)"/gi, 'src="/proxy?url=$1"');
-
+    const content = await page.content();
     res.send(content);
   } catch (err) {
     res.status(500).send(`Error loading ${target}: ${err.message}`);
@@ -40,4 +31,7 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Playwright proxy running on port ${PORT}`));
+// Basic health check
+app.get("/", (req, res) => res.send("Wisp Playwright Proxy Running"));
+
+app.listen(PORT, () => console.log(`Headless proxy running on port ${PORT}`));
