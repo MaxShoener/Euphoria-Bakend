@@ -1,17 +1,14 @@
 {
   "name": "wisp-proxy-playwright",
   "version": "1.0.0",
-  "description": "Headless proxy using Playwright for fetching web pages",
+  "description": "Headless proxy using Playwright",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "npx playwright install chromium"
+    "postinstall": "npx playwright install chromium",
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "playwright": "^1.44.0"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }
