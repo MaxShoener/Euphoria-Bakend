@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const fetch = require("node-fetch");
 const path = require("path");
 
 const app = express();
@@ -17,24 +17,13 @@ app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL parameter");
 
-  let browser;
   try {
-    // Launch Puppeteer with bundled Chromium
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-
-    const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "networkidle2" });
-
-    const content = await page.content();
-    res.send(content);
+    const response = await fetch(target);
+    const text = await response.text();
+    res.send(text);
   } catch (err) {
     res.status(500).send(`Error loading ${target}: ${err.message}`);
-  } finally {
-    if (browser) await browser.close();
   }
 });
 
-app.listen(PORT, () => console.log(`Headless WISP proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Fetch-based WISP proxy running on port ${PORT}`));
