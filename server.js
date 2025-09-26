@@ -1,45 +1,35 @@
 const express = require("express");
-const fetch = require("node-fetch");
-const { URL } = require("url");
-
+const puppeteer = require("puppeteer");
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 
-// Basic rewrite function
-function rewriteHtml(html, targetUrl) {
-  // Rewrite relative links to absolute
-  const base = new URL(targetUrl);
-  return html
-    .replace(/href="\//g, `href="${base.origin}/`)
-    .replace(/src="\//g, `src="${base.origin}/`)
-    .replace(/content="\//g, `content="${base.origin}/`);
-}
-
-// Proxy endpoint
 app.get("/proxy", async (req, res) => {
-  const target = req.query.url;
-  if (!target) {
-    return res.status(400).send("Missing ?url=");
-  }
+  const url = req.query.url;
+  if (!url) return res.status(400).send("Missing ?url=");
 
+  let browser;
   try {
-    const response = await fetch(target, {
-      headers: { "User-Agent": req.headers["user-agent"] }
-    });
+    browser = await puppeteer.launch({ args: ["--no-sandbox"] });
+    const page = await browser.newPage();
 
-    let text = await response.text();
-    text = rewriteHtml(text, target);
+    // Optional: set user agent to desktop
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+    );
 
-    // Strip CSP headers
-    res.set("Content-Security-Policy", "");
-    res.set("X-Frame-Options", "ALLOWALL");
+    await page.goto(url, { waitUntil: "networkidle2" });
 
-    res.send(text);
+    const html = await page.content();
+
+    res.set("Content-Type", "text/html");
+    res.send(html);
   } catch (err) {
-    res.status(500).send(`Error fetching ${target}: ${err.message}`);
+    res.status(500).send(`Error loading ${url}: ${err.message}`);
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Proxy running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Headless proxy running on port ${PORT}`));
