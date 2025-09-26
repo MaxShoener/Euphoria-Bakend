@@ -4,7 +4,6 @@ const puppeteer = require("puppeteer");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Enable query parameter parsing
 app.use(express.urlencoded({ extended: true }));
 
 // Proxy route
@@ -17,8 +16,10 @@ app.get("/proxy", async (req, res) => {
     browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
+
     const page = await browser.newPage();
     await page.goto(target, { waitUntil: "networkidle2" });
+
     const content = await page.content();
     res.send(content);
   } catch (err) {
