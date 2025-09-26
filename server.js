@@ -1,25 +1,14 @@
 const express = require("express");
-const puppeteer = require("puppeteer-core");
-const fs = require("fs");
+const puppeteer = require("puppeteer");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Detect Chrome binary installed on Render
-let chromePath = null;
-const basePath = "/opt/render/project/.chromium-browser";
+// Optional: simple home page
+app.get("/", (req, res) => {
+  res.send("WISP Proxy Server is running. Use /proxy?url=<URL>");
+});
 
-if (fs.existsSync(basePath)) {
-  const versions = fs.readdirSync(basePath);
-  if (versions.length > 0) {
-    chromePath = `${basePath}/${versions[0]}/chrome`;
-    console.log("Detected Chrome at:", chromePath);
-  }
-}
-
-if (!chromePath) {
-  console.error("No Chrome binary found. Puppeteer cannot launch!");
-}
-
+// Proxy endpoint
 app.get("/proxy", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).send("Missing ?url=");
@@ -27,7 +16,6 @@ app.get("/proxy", async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      executablePath: chromePath,           // <-- Must specify executablePath
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
