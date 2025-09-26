@@ -1,7 +1,7 @@
 const express = require("express");
-const { chromium } = require("playwright"); // Use Playwright's Chromium
-
+const { chromium } = require("playwright"); // Playwright Chromium
 const app = express();
+
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
@@ -13,8 +13,10 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
+    // Launch Chromium with Render-friendly args
     browser = await chromium.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: true,
     });
 
     const page = await browser.newPage();
