@@ -1,38 +1,31 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
-const fetch = require('node-fetch');
-
+const path = require('path');
+const fetch = require('node-fetch'); // install with `npm install node-fetch`
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-// Serve static files (index.html)
-app.use(express.static(__dirname));
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-// Proxy endpoint
-app.get('/proxy', async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).send('No URL provided');
-
+// Proxy route
+app.post('/fetch', async (req, res) => {
   try {
-    const browser = await puppeteer.launch({
-      executablePath: puppeteer.executablePath(),
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
-
-    const content = await page.content();
-    await browser.close();
-
-    res.send(content);
+    const { url } = req.body;
+    if (!url) return res.status(400).send('No URL provided');
+    
+    const response = await fetch(url);
+    const text = await response.text();
+    
+    res.send(text);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Proxy failed');
+    res.status(500).send(err.message);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Euphoria proxy running on port ${PORT}`);
+// Catch-all route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+app.listen(PORT, () => console.log(`Euphoria server running on port ${PORT}`));
