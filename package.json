@@ -1,14 +1,13 @@
 {
-  "name": "wisp-proxy",
+  "name": "wisp-proxy-fetch",
   "version": "1.0.0",
-  "description": "Hosted WISP proxy using Puppeteer",
+  "description": "WISP proxy using fetch (no Puppeteer required)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "puppeteer install"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "puppeteer": "^24.10.2"
+    "node-fetch": "^3.3.2"
   }
 }
