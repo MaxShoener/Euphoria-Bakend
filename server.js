@@ -1,6 +1,6 @@
 const express = require("express");
 const path = require("path");
-const { chromium } = require("playwright"); // headless browser
+const { chromium } = require("playwright-chromium");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
