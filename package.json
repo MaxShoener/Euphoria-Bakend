@@ -1,11 +1,10 @@
 {
   "name": "wisp-proxy-playwright",
   "version": "1.0.0",
-  "description": "Headless proxy using Playwright",
   "main": "server.js",
   "scripts": {
-    "postinstall": "npx playwright install chromium",
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "express": "^4.18.2",
