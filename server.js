@@ -1,7 +1,30 @@
 const express = require("express");
 const puppeteer = require("puppeteer-core");
+const fs = require("fs");
+const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Try to detect Chrome executable automatically
+function getChromePath() {
+  const candidates = [
+    "/opt/google/chrome/chrome", // standard path (may not exist)
+    "/usr/bin/google-chrome",    // common Linux path
+    "/usr/bin/chromium-browser", // common Linux path
+    "/opt/render/project/.chromium-browser/linux-121.0.6167.85/chrome", // Render prebuilt
+    "/opt/render/project/.chromium-browser/linux-*/chrome", // wildcard version
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  console.warn("Chrome executable not found, Puppeteer may fail");
+  return null;
+}
+
+const chromePath = getChromePath();
 
 app.get("/proxy", async (req, res) => {
   const url = req.query.url;
@@ -10,8 +33,8 @@ app.get("/proxy", async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      executablePath: "/opt/google/chrome/chrome", // preinstalled Chrome on Render
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      executablePath: chromePath,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
