@@ -1,36 +1,58 @@
 const express = require("express");
-const { chromium } = require("playwright");
-
+const { chromium } = require("playwright"); // using updated playwright
 const app = express();
-const PORT = process.env.PORT || 10000;
 
-app.use(express.urlencoded({ extended: true }));
+const PORT = process.env.PORT || 3000;
 
-// Proxy route
+app.use(express.static("public"));
+
 app.get("/proxy", async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send("Missing URL parameter");
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).send("Missing ?url parameter");
+  }
 
   let browser;
   try {
     browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
-    const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "domcontentloaded", timeout: 60000 });
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-    const content = await page.content();
-    res.send(content);
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+
+    let html = await page.content();
+
+    // Inject script that intercepts link clicks
+    const injection = `
+      <script>
+        document.addEventListener("click", (e) => {
+          const a = e.target.closest("a");
+          if (a && a.href) {
+            e.preventDefault();
+            window.parent.postMessage({ type: "navigate", url: a.href }, "*");
+          }
+        });
+      </script>
+    `;
+
+    // Insert before </body> if present
+    html = html.replace("</body>", injection + "</body>");
+
+    res.send(html);
   } catch (err) {
     console.error("Proxy error:", err);
-    res.status(500).send(`Error loading ${target}: ${err.message}`);
+    res.status(500).send("Error loading " + targetUrl + ": " + err.message);
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Headless proxy running on port ${PORT}`);
+  console.log(`Wisp proxy running on http://localhost:${PORT}`);
 });
