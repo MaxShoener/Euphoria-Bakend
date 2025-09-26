@@ -5,7 +5,6 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -30,8 +29,5 @@ app.get("/proxy", async (req, res) => {
     if (browser) await browser.close();
   }
 });
-
-// Basic health check
-app.get("/", (req, res) => res.send("Wisp Playwright Proxy Running"));
 
 app.listen(PORT, () => console.log(`Headless proxy running on port ${PORT}`));
