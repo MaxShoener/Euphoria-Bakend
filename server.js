@@ -1,11 +1,11 @@
 const express = require("express");
-const { chromium } = require("playwright-chromium"); // use playwright-chromium
+const { chromium } = require("playwright-core");
+const fetch = require("node-fetch");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -14,7 +14,9 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
+    // Launch system Chrome
     browser = await chromium.launch({
+      executablePath: "/usr/bin/google-chrome-stable",
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
