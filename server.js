@@ -1,9 +1,11 @@
 const express = require("express");
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const path = require("path");
+const { chromium } = require("playwright"); // headless browser
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+
+app.use(express.urlencoded({ extended: true }));
 
 // Serve UI
 app.get("/", (req, res) => {
@@ -15,23 +17,27 @@ app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL parameter");
 
+  let browser;
   try {
-    const response = await fetch(target);
-    let html = await response.text();
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-    // Strip <head> and <body> to avoid overriding our UI
-    html = html.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
-    html = html.replace(/<body[^>]*>/i, '').replace(/<\/body>/i, '');
+    const page = await browser.newPage();
+    await page.goto(target, { waitUntil: "networkidle" });
 
-    // Rewrite all links and sources to go through proxy
-    html = html.replace(/href="(http[s]?:\/\/[^"]+)"/gi, 'href="/proxy?url=$1"');
-    html = html.replace(/src="(http[s]?:\/\/[^"]+)"/gi, 'src="/proxy?url=$1"');
+    let content = await page.content();
 
-    // Wrap content in a container div
-    res.send(`<div style="overflow:auto; height:100%; width:100%;">${html}</div>`);
+    // Rewrite links to go through proxy
+    content = content.replace(/href="(http[s]?:\/\/[^"]+)"/gi, 'href="/proxy?url=$1"');
+    content = content.replace(/src="(http[s]?:\/\/[^"]+)"/gi, 'src="/proxy?url=$1"');
+
+    res.send(content);
   } catch (err) {
     res.status(500).send(`Error loading ${target}: ${err.message}`);
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
-app.listen(PORT, () => console.log(`Fetch-based WISP proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Playwright proxy running on port ${PORT}`));
