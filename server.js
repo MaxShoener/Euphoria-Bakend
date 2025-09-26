@@ -1,35 +1,31 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+const fetch = require('node-fetch'); // fallback if Playwright isn't available
 const cors = require('cors');
-const fetch = require('node-fetch'); // if using Puppeteer/Playwright later, adapt this
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Enable JSON parsing
-app.use(bodyParser.json());
-
-// Enable CORS for all origins (so local files can access it)
 app.use(cors());
+app.use(express.json());
 
-// Example /fetch route
-app.post('/fetch', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).send('No URL provided');
+// Serve static files (optional if hosting index.html on the same repo)
+app.use(express.static('public'));
+
+// Simple fetch proxy
+app.get('/fetch', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('Missing URL parameter');
 
   try {
-    // If using Puppeteer or Playwright later, replace this with proper scraping
     const response = await fetch(url);
     const html = await response.text();
-
     res.send(html);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error fetching URL');
+    res.status(500).send('Failed to fetch URL');
   }
 });
 
-// Start the server
+// Start server
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Euphoria proxy running on port ${PORT}`);
+  console.log(`Euphoria Proxy running on http://localhost:${PORT}`);
 });
