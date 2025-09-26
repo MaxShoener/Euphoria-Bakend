@@ -19,11 +19,16 @@ app.get("/proxy", async (req, res) => {
     const response = await fetch(target);
     let html = await response.text();
 
-    // Rewrite all links to go through proxy
+    // Strip <head> and <body> to avoid overriding our UI
+    html = html.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
+    html = html.replace(/<body[^>]*>/i, '').replace(/<\/body>/i, '');
+
+    // Rewrite all links and sources to go through proxy
     html = html.replace(/href="(http[s]?:\/\/[^"]+)"/gi, 'href="/proxy?url=$1"');
     html = html.replace(/src="(http[s]?:\/\/[^"]+)"/gi, 'src="/proxy?url=$1"');
 
-    res.send(html);
+    // Wrap content in a container div
+    res.send(`<div style="overflow:auto; height:100%; width:100%;">${html}</div>`);
   } catch (err) {
     res.status(500).send(`Error loading ${target}: ${err.message}`);
   }
