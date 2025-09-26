@@ -1,32 +1,45 @@
-const WebSocket = require("ws");
-const http = require("http");
+const express = require("express");
 const fetch = require("node-fetch");
+const { URL } = require("url");
 
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-wss.on("connection", ws => {
-  ws.on("message", async message => {
-    let data;
-    try {
-      data = JSON.parse(message);
-    } catch (e) {
-      return;
-    }
+// Basic rewrite function
+function rewriteHtml(html, targetUrl) {
+  // Rewrite relative links to absolute
+  const base = new URL(targetUrl);
+  return html
+    .replace(/href="\//g, `href="${base.origin}/`)
+    .replace(/src="\//g, `src="${base.origin}/`)
+    .replace(/content="\//g, `content="${base.origin}/`);
+}
 
-    if (data.action === "fetch" && data.url) {
-      try {
-        const res = await fetch(data.url);
-        const text = await res.text();
-        ws.send(JSON.stringify({ id: data.id, body: text }));
-      } catch (e) {
-        ws.send(JSON.stringify({ id: data.id, body: `<p>Failed: ${e}</p>` }));
-      }
-    }
-  });
+// Proxy endpoint
+app.get("/proxy", async (req, res) => {
+  const target = req.query.url;
+  if (!target) {
+    return res.status(400).send("Missing ?url=");
+  }
+
+  try {
+    const response = await fetch(target, {
+      headers: { "User-Agent": req.headers["user-agent"] }
+    });
+
+    let text = await response.text();
+    text = rewriteHtml(text, target);
+
+    // Strip CSP headers
+    res.set("Content-Security-Policy", "");
+    res.set("X-Frame-Options", "ALLOWALL");
+
+    res.send(text);
+  } catch (err) {
+    res.status(500).send(`Error fetching ${target}: ${err.message}`);
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () =>
-  console.log(`WISP proxy running on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`Proxy running on http://localhost:${PORT}`);
+});
