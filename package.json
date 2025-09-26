@@ -1,16 +1,14 @@
 {
   "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Headless proxy using Playwright Chromium",
+  "description": "Headless proxy using Playwright-core and system Chrome",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright-chromium": "^1.42.0"
-  },
-  "engines": {
-    "node": ">=18"
+    "playwright-core": "^1.43.0", 
+    "node-fetch": "^3.4.1"
   }
 }
