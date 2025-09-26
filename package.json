@@ -1,7 +1,7 @@
 {
   "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Local Wisp-like proxy using Puppeteer",
+  "description": "Proxy server using Puppeteer",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
