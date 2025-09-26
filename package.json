@@ -1,19 +1,18 @@
 {
   "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Euphoria headless proxy server using Playwright",
+  "description": "Euphoria proxy server with Playwright + Express",
   "main": "server.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "postinstall": "npx playwright install chromium"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.44.0",
+    "playwright": "^1.48.0",
     "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
