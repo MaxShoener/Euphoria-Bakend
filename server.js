@@ -1,10 +1,16 @@
 const express = require("express");
 const puppeteer = require("puppeteer");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
+
+// Serve the UI
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
