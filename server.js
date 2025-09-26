@@ -1,10 +1,11 @@
 const express = require('express');
-const playwright = require('playwright'); // not playwright-core
+const playwright = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public')); // serve index.html
 
 app.get('/proxy', async (req, res) => {
   const target = req.query.url;
@@ -12,7 +13,6 @@ app.get('/proxy', async (req, res) => {
 
   let browser;
   try {
-    // Use Playwright's own Chromium path
     const executablePath = playwright.chromium.executablePath();
 
     browser = await playwright.chromium.launch({
@@ -33,4 +33,6 @@ app.get('/proxy', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Euphoria proxy running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Euphoria proxy running on port ${PORT}`);
+});
