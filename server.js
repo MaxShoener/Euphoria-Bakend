@@ -1,9 +1,12 @@
 const express = require("express");
-const { chromium } = require("playwright"); // use chromium from playwright
+const { chromium } = require("playwright");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files (index.html, CSS, JS)
+app.use(express.static("public"));
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -28,4 +31,6 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Headless proxy running on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`Euphoria proxy running on port ${PORT}`)
+);
