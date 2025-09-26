@@ -1,7 +1,7 @@
 {
-  "name": "wisp-proxy",
+  "name": "headless-wisp-proxy",
   "version": "1.0.0",
-  "description": "Headless proxy using Puppeteer for Render",
+  "description": "Headless browser proxy using Puppeteer for Render",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
