@@ -1,7 +1,7 @@
 {
   "name": "wisp-proxy-playwright",
   "version": "1.0.0",
-  "description": "Headless proxy using Playwright for fetching pages",
+  "description": "Headless proxy using Playwright for fetching web pages",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.43.0"
+    "playwright": "^1.44.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
