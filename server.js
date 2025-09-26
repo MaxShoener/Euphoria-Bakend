@@ -1,13 +1,11 @@
 const express = require("express");
-const path = require("path");
-const { chromium } = require("playwright");
+const { chromium } = require("playwright-chromium"); // use playwright-chromium
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Serve static files from 'public' folder
-app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -17,7 +15,6 @@ app.get("/proxy", async (req, res) => {
   let browser;
   try {
     browser = await chromium.launch({
-      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
@@ -27,11 +24,10 @@ app.get("/proxy", async (req, res) => {
     const content = await page.content();
     res.send(content);
   } catch (err) {
-    console.error(err);
     res.status(500).send(`Error loading ${target}: ${err.message}`);
   } finally {
     if (browser) await browser.close();
   }
 });
 
-app.listen(PORT, () => console.log(`Euphoria proxy running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Euphoria proxy running on port ${PORT}`));
