@@ -1,11 +1,13 @@
 const express = require("express");
-const { chromium } = require("playwright");
+const puppeteer = require("puppeteer");
+const cors = require("cors");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = 10000;
 
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public")); // serve your index.html
+app.use(express.json());
 
 // Proxy route
 app.get("/proxy", async (req, res) => {
@@ -14,12 +16,13 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    browser = await chromium.launch({
+    browser = await puppeteer.launch({
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "networkidle" });
+    await page.goto(target, { waitUntil: "networkidle2", timeout: 30000 });
 
     const content = await page.content();
     res.send(content);
@@ -30,4 +33,6 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Wisp proxy running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Wisp proxy running on http://localhost:${PORT}`);
+});
