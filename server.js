@@ -1,24 +1,22 @@
 const express = require("express");
 const puppeteer = require("puppeteer-core");
 const fs = require("fs");
-const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Detect Render Chrome dynamically
+// Detect Chrome binary dynamically
 let chromePath = null;
-const chromeBasePath = "/opt/render/project/.chromium-browser";
-
-if (fs.existsSync(chromeBasePath)) {
-  const versions = fs.readdirSync(chromeBasePath);
+const basePath = "/opt/render/project/.chromium-browser";
+if (fs.existsSync(basePath)) {
+  const versions = fs.readdirSync(basePath);
   if (versions.length > 0) {
-    chromePath = `${chromeBasePath}/${versions[0]}/chrome`;
-    console.log("Detected Chrome binary at:", chromePath);
+    chromePath = `${basePath}/${versions[0]}/chrome`;
+    console.log("Detected Chrome at:", chromePath);
   }
 }
 
 if (!chromePath) {
-  console.error("No Chrome binary found. Puppeteer will not work.");
+  console.error("No Chrome binary found. Puppeteer-core cannot launch!");
 }
 
 app.get("/proxy", async (req, res) => {
@@ -33,11 +31,6 @@ app.get("/proxy", async (req, res) => {
     });
 
     const page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-      "(KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
-    );
-
     await page.goto(url, { waitUntil: "networkidle2" });
     const html = await page.content();
 
