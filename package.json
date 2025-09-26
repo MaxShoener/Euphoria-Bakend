@@ -1,17 +1,14 @@
 {
   "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Headless proxy using Playwright for Render",
+  "description": "Local Wisp-like proxy using Puppeteer",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "npx playwright install chromium"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.44.0"
-  },
-  "engines": {
-    "node": ">=18"
+    "puppeteer": "^24.10.2",
+    "cors": "^2.8.5"
   }
 }
