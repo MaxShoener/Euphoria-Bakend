@@ -1,24 +1,18 @@
 const express = require("express");
-const fetch = require("node-fetch");
-const { chromium } = require("playwright");
-
+const { chromium } = require("playwright");  // only chromium
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(express.urlencoded({ extended: true }));
 
+// Proxy route
 app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL parameter");
 
   let browser;
   try {
-    // Launch local Chromium
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-
+    browser = await chromium.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     const page = await browser.newPage();
     await page.goto(target, { waitUntil: "networkidle" });
     const content = await page.content();
@@ -30,4 +24,4 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Euphoria proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Wisp proxy running on port ${PORT}`));
