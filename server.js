@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer"); // full Puppeteer, includes Chromium
+const puppeteer = require("puppeteer");
 const path = require("path");
 
 const app = express();
@@ -19,7 +19,7 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    // Launch Puppeteer using bundled Chromium
+    // Launch Puppeteer with bundled Chromium
     browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
