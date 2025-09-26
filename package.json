@@ -1,7 +1,6 @@
 {
   "name": "wisp-proxy-playwright",
   "version": "1.0.0",
-  "description": "Headless proxy with Playwright and Chromium for serverless deployment",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
