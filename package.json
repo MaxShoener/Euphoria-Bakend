@@ -1,16 +1,17 @@
 {
-  "name": "euphoria-server",
+  "name": "euphoria-proxy",
   "version": "1.0.0",
-  "description": "Euphoria browser server",
+  "description": "Simple web proxy using Playwright or node-fetch",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^3.4.0"
+    "start": "node server.js",
+    "postinstall": "echo 'Skipping Playwright browser install on Render'"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2"
   }
 }
