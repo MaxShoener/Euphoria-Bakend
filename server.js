@@ -1,42 +1,52 @@
-const express = require("express");
-const cors = require("cors");
-const { chromium } = require("playwright");
+// server.js
+import express from "express";
+import cors from "cors";
+import { chromium } from "playwright"; // playwright supports Chromium, Firefox, WebKit
+import fetch from "node-fetch"; // optional, if needed for simple requests
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 10000;
+// Simple health check
+app.get("/", (req, res) => res.send("Euphoria Proxy Server is running!"));
 
-app.get("/", (req, res) => {
-  res.send("Euphoria Backend is running");
-});
-
+// Proxy endpoint
 app.get("/proxy", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Missing URL parameter");
+  const { url } = req.query;
+  if (!url) return res.status(400).send("Missing URL parameter");
 
   let browser;
   try {
     browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"], // required for Render.com
     });
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 720 }, // default viewport
+    });
+
     const page = await context.newPage();
 
-    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-    const content = await page.content();
+    // Handle errors gracefully
+    page.on("pageerror", (err) => console.error("Page error:", err));
+    page.on("requestfailed", (req) => console.error("Request failed:", req.url()));
 
-    await browser.close();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    // Get page content
+    const content = await page.content();
     res.send(content);
+
   } catch (err) {
+    console.error("Error loading page:", err);
+    res.status(500).send("Failed to load URL");
+  } finally {
     if (browser) await browser.close();
-    console.error("Error fetching URL:", err);
-    res.status(500).send("Failed to fetch the requested URL");
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Euphoria backend running on port ${PORT}`);
+// Listen on Render-compatible port
+const port = process.env.PORT || 10000;
+app.listen(port, () => {
+  console.log(`Euphoria Proxy Server running on port ${port}`);
 });
