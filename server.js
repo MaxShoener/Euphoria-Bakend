@@ -1,5 +1,5 @@
 const express = require('express');
-const { chromium } = require('playwright-core');
+const playwright = require('playwright'); // not playwright-core
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -12,9 +12,13 @@ app.get('/proxy', async (req, res) => {
 
   let browser;
   try {
-    browser = await chromium.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: true
+    // Use Playwright's own Chromium path
+    const executablePath = playwright.chromium.executablePath();
+
+    browser = await playwright.chromium.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
