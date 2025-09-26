@@ -1,5 +1,5 @@
 const express = require("express");
-const { chromium } = require("playwright"); // using updated playwright
+const { chromium } = require("playwright"); 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -26,9 +26,10 @@ app.get("/proxy", async (req, res) => {
 
     let html = await page.content();
 
-    // Inject script that intercepts link clicks
+    // Inject script to handle clicks and form submits
     const injection = `
       <script>
+        // Handle clicks
         document.addEventListener("click", (e) => {
           const a = e.target.closest("a");
           if (a && a.href) {
@@ -36,10 +37,28 @@ app.get("/proxy", async (req, res) => {
             window.parent.postMessage({ type: "navigate", url: a.href }, "*");
           }
         });
+
+        // Handle form submissions
+        document.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const form = e.target;
+          const formData = new FormData(form);
+          const params = new URLSearchParams();
+          for (const [key, value] of formData.entries()) {
+            params.append(key, value);
+          }
+          let action = form.action || window.location.href;
+          if (form.method.toLowerCase() === "get") {
+            const newUrl = action + "?" + params.toString();
+            window.parent.postMessage({ type: "navigate", url: newUrl }, "*");
+          } else {
+            // POST: just fallback to direct navigation
+            window.parent.postMessage({ type: "navigate", url: action }, "*");
+          }
+        });
       </script>
     `;
 
-    // Insert before </body> if present
     html = html.replace("</body>", injection + "</body>");
 
     res.send(html);
