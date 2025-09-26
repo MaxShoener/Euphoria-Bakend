@@ -1,14 +1,13 @@
 {
-  "name": "wisp-proxy-fetch",
+  "name": "wisp-proxy-playwright",
   "version": "1.0.0",
-  "description": "Fetch-based proxy for WISP",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "playwright": "^1.43.0"
   },
   "engines": {
     "node": ">=18"
