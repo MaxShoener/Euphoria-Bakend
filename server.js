@@ -1,55 +1,46 @@
 import express from 'express';
 import cors from 'cors';
-import { chromium } from 'playwright';
+import bodyParser from 'body-parser';
+import { chromium } from 'playwright';  // Ensure Playwright is installed
+import path from 'path';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(express.static('public')); // for frontend static files
 
-// Helper: ensure URL is valid or fallback to search
-function formatURL(input) {
-  if (!input) return 'https://www.google.com';
-  if (/^https?:\/\//i.test(input)) return input;
-  return `https://www.google.com/search?q=${encodeURIComponent(input)}`;
-}
-
-// Cache browser instance (optional)
 let browser;
+let context;
 
-async function getBrowser() {
+async function initBrowser() {
   if (!browser) {
     browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
   }
-  return browser;
 }
 
-// Main /browse route
 app.get('/browse', async (req, res) => {
-  const url = formatURL(req.query.url);
   try {
-    const browser = await getBrowser();
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
+    await initBrowser();
+    const url = req.query.url;
+    if (!url) return res.status(400).send('Missing URL');
+    
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     const content = await page.content();
-    res.send(content);
     await page.close();
+    
+    res.send(content);
   } catch (err) {
-    console.error('Failed to load page:', err);
-    res.status(500).send(`Error loading page: ${err.message}`);
+    console.error('Error loading page:', err);
+    res.status(500).send('Failed to load page');
   }
-});
-
-// Optional: navigation buttons route for frontend iframe
-app.get('/navigate', (req, res) => {
-  res.send(`
-    <button onclick="history.back()">⬅ Back</button>
-    <button onclick="history.forward()">➡ Forward</button>
-  `);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
