@@ -1,46 +1,41 @@
-import express from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import { chromium } from "playwright";
+import express from 'express';
+import cors from 'cors';
+import { chromium } from 'playwright';
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
 let browser;
 
-(async () => {
-  try {
-    browser = await chromium.launch({ headless: true });
-    console.log("Playwright browser launched!");
-  } catch (err) {
-    console.error("Failed to launch browser:", err);
+async function initBrowser() {
+  if (!browser) {
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
   }
-})();
+}
 
-app.get("/", (req, res) => {
-  res.send("Euphoria backend is running!");
-});
+app.get('/browse', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('URL missing');
 
-// Example route to render a page
-app.get("/browse", async (req, res) => {
-  const url = req.query.url || "https://www.google.com";
-  if (!browser) return res.status(500).send("Browser not initialized");
-
+  await initBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     const content = await page.content();
     await context.close();
     res.send(content);
   } catch (err) {
     await context.close();
-    console.error("Error loading page:", err);
-    res.status(500).send("Failed to load page");
+    res.status(500).send('Error loading page: ' + err.message);
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(process.env.PORT || 3000, () => {
+  console.log('Server running...');
+});
