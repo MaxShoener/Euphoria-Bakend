@@ -6,31 +6,41 @@ const PORT = process.env.PORT || 3000;
 
 let browser;
 
+// Try to start Chromium safely
 async function initBrowser() {
-  if (!browser) {
-    browser = await chromium.launch({ headless: true });
+  try {
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    console.log("✅ Chromium launched successfully");
+  } catch (err) {
+    console.error("❌ Failed to launch Chromium:", err.message);
+    console.log("⏳ Retrying in 10 seconds...");
+    setTimeout(initBrowser, 10000);
   }
-  return browser;
 }
 
-app.get("/browse", async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send("Missing URL");
+app.get("/", (req, res) => {
+  res.send("🚀 Euphoria backend is running!");
+});
+
+app.get("/screenshot", async (req, res) => {
+  if (!browser) return res.status(503).send("⚠️ Browser not ready yet.");
 
   try {
-    const b = await initBrowser();
-    const context = await b.newContext();
-    const page = await context.newPage();
-    await page.goto(target, { waitUntil: "domcontentloaded" });
-    const content = await page.content();
-    await context.close();
-    res.send(content);
+    const page = await browser.newPage();
+    await page.goto("https://example.com");
+    const screenshot = await page.screenshot();
+    await page.close();
+
+    res.type("png").send(screenshot);
   } catch (err) {
-    console.error("Browse error:", err);
-    res.status(500).send("Failed to load page");
+    console.error("❌ Error taking screenshot:", err.message);
+    res.status(500).send("Internal server error");
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Euphoria backend running on port ${PORT}`);
+  console.log(`🌐 Server running on port ${PORT}`);
+  initBrowser();
 });
