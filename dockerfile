@@ -1,23 +1,21 @@
-# Use official Node.js LTS image
-FROM node:24-bullseye
+# Use official Node.js LTS
+FROM node:24
 
 # Set working directory
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json first
-COPY package*.json ./
-
-# Install Node dependencies
+# Copy package.json and install dependencies
+COPY package.json package-lock.json* ./
 RUN npm install
+
+# Copy server code
+COPY . .
 
 # Install Playwright browsers
 RUN npx playwright install chromium
 
-# Copy the rest of the backend files
-COPY . .
-
-# Expose backend port
+# Expose port
 EXPOSE 10000
 
-# Start the server
+# Run server
 CMD ["node", "server.js"]
