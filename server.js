@@ -11,18 +11,24 @@ const PORT = process.env.PORT || 3000;
 // Serve frontend
 app.use(express.static(__dirname));
 
-// Simple proxy for CORS/logins/remote play
+// Proxy for logins, Xbox Remote Play, general browsing
 app.get('/proxy', async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send('Missing URL');
 
   try {
-    const response = await fetch(target);
+    // Basic fetch proxy; can be extended for cookies/auth
+    const response = await fetch(target, { redirect: 'follow' });
     const text = await response.text();
     res.send(text);
   } catch (err) {
     res.status(500).send(err.toString());
   }
+});
+
+// Optional: Xbox Remote Play endpoint (example placeholder)
+app.get('/xbox', (req, res) => {
+  res.send('Xbox Remote Play endpoint ready (integrate API)');
 });
 
 app.listen(PORT, () => {
