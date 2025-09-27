@@ -7,22 +7,34 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Proxy endpoint: routes any URL through backend to avoid CORS
-app.get('/proxy', async (req, res) => {
-  const url = req.query.url;
+const ALLOWED_ORIGINS = ['*'];
+
+// Simple proxy for browsing
+app.get('/browse', async (req, res) => {
+  const { url } = req.query;
   if (!url) return res.status(400).send('No URL provided');
-
   try {
-    const response = await fetch(url, { headers: { 'User-Agent': 'EuphoriaBrowser/1.0' } });
-    const contentType = response.headers.get('content-type');
-    const body = await response.text();
-    res.set('Content-Type', contentType || 'text/html');
-    res.send(body);
+    const response = await fetch(url);
+    const html = await response.text();
+    res.send(html);
   } catch (err) {
-    res.status(500).send(`Proxy error: ${err}`);
+    res.status(500).send('Error loading page: ' + err.message);
   }
 });
 
-app.listen(PORT, () => console.log(`Euphoria backend running on port ${PORT}`));
+// Placeholder login API
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username && password) {
+    return res.json({ success: true, token: 'fake-jwt-token' });
+  }
+  res.status(400).json({ success: false, message: 'Invalid credentials' });
+});
+
+// Remote play placeholder
+app.get('/remote-play', (req, res) => {
+  res.send('Remote play feature coming soon!');
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
