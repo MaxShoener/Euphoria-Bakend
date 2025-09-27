@@ -1,7 +1,7 @@
 {
   "name": "euphoria-backend",
   "version": "1.0.0",
-  "description": "Backend proxy for Euphoria browser",
+  "description": "Backend proxy for Euphoria browser with logins & Xbox Remote Play",
   "main": "server.js",
   "type": "module",
   "scripts": {
