@@ -1,64 +1,57 @@
-const express = require("express");
-const fetch = require("node-fetch");
-const { URL } = require("url");
+const express = require('express');
+const fetch = require('node-fetch');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware for JSON parsing
-app.use(express.json());
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Proxy endpoint
-app.get("/proxy", async (req, res) => {
+// Proxy endpoint (handles GET + POST)
+app.all('/proxy', async (req, res) => {
   try {
     const targetUrl = req.query.url;
     if (!targetUrl) {
-      return res.status(400).send("Missing ?url parameter");
+      return res.status(400).send('Missing url parameter');
     }
 
-    let finalUrl = targetUrl.startsWith("http")
-      ? targetUrl
-      : "https://" + targetUrl;
+    // Forward headers (preserve cookies + user agent, etc.)
+    const headers = { ...req.headers };
+    delete headers['host']; // avoid conflict
+    delete headers['content-length'];
 
-    const response = await fetch(finalUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 Euphoria-Proxy" },
+    const options = {
+      method: req.method,
+      headers,
+      redirect: 'follow',
+    };
+
+    if (req.method !== 'GET' && req.body) {
+      options.body = JSON.stringify(req.body);
+      headers['content-type'] = 'application/json';
+    }
+
+    // Fetch target page
+    const response = await fetch(targetUrl, options);
+
+    // Forward cookies + headers
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'set-cookie') {
+        res.setHeader('set-cookie', value);
+      }
     });
 
-    let contentType = response.headers.get("content-type");
-    let body = await response.text();
+    // Pipe status + body
+    res.status(response.status);
+    response.body.pipe(res);
 
-    // Rewriter only for HTML
-    if (contentType && contentType.includes("text/html")) {
-      const base = new URL(finalUrl);
-
-      // Rewrite all src/href/form actions to go through proxy
-      body = body.replace(
-        /(href|src|action)=["'](.*?)["']/gi,
-        (match, attr, value) => {
-          if (value.startsWith("http")) {
-            return `${attr}="/proxy?url=${encodeURIComponent(value)}"`;
-          } else if (value.startsWith("//")) {
-            return `${attr}="/proxy?url=${encodeURIComponent(
-              base.protocol + value
-            )}"`;
-          } else if (value.startsWith("/")) {
-            return `${attr}="/proxy?url=${encodeURIComponent(
-              base.origin + value
-            )}"`;
-          } else {
-            return `${attr}="/proxy?url=${encodeURIComponent(
-              base.origin + "/" + value
-            )}"`;
-          }
-        }
-      );
-    }
-
-    res.setHeader("Content-Type", contentType || "text/html");
-    res.send(body);
   } catch (err) {
-    console.error("Proxy error:", err.message);
-    res.status(500).send("Proxy Error: " + err.message);
+    console.error(err);
+    res.status(500).send('Error fetching target');
   }
 });
 
