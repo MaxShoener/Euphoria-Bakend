@@ -1,36 +1,37 @@
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
+import session from 'express-session';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve frontend
-app.use(express.static(__dirname));
+// Session for logins & cookies
+app.use(session({
+  secret: 'euphoria-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
 
-// Proxy for logins, Xbox Remote Play, general browsing
+app.use(express.static('.')); // serve index.html
+
+// Proxy endpoint
 app.get('/proxy', async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send('Missing URL');
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send('Missing url');
 
   try {
-    // Basic fetch proxy; can be extended for cookies/auth
-    const response = await fetch(target, { redirect: 'follow' });
-    const text = await response.text();
-    res.send(text);
+    const response = await fetch(targetUrl, {
+      headers: { 'User-Agent': 'EuphoriaBrowser/1.0' },
+      redirect: 'follow'
+    });
+    const contentType = response.headers.get('content-type');
+    res.set('Content-Type', contentType || 'text/html');
+    const body = await response.text();
+    res.send(body);
   } catch (err) {
-    res.status(500).send(err.toString());
+    res.status(500).send('Error fetching page: ' + err.message);
   }
 });
 
-// Optional: Xbox Remote Play endpoint (example placeholder)
-app.get('/xbox', (req, res) => {
-  res.send('Xbox Remote Play endpoint ready (integrate API)');
-});
-
-app.listen(PORT, () => {
-  console.log(`Euphoria backend running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Euphoria server running on port ${PORT}`));
