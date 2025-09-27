@@ -1,41 +1,53 @@
 import express from "express";
+import bodyParser from "body-parser";
 import { chromium } from "playwright";
-import path from "path";
-import url from "url";
 
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(express.static(path.join(__dirname, "frontend"))); // serve frontend
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static("public")); // Serve index.html
 
 let browser;
+let page;
+
 async function initBrowser() {
-  if (!browser) {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-  }
+    if (!browser) {
+        browser = await chromium.launch({ headless: true });
+        page = await browser.newPage();
+    }
 }
 
-// Browse route for iframe streaming
-app.get("/browse", async (req, res) => {
-  await initBrowser();
-  const page = await browser.newPage();
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Missing URL");
-
-  try {
-    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-    const screenshot = await page.screenshot({ fullPage: true });
-    res.set("Content-Type", "image/png");
-    res.send(screenshot);
-  } catch (err) {
-    res.status(500).send("Error loading page: " + err.message);
-  } finally {
-    await page.close();
-  }
+// Endpoint to navigate/search
+app.post("/navigate", async (req, res) => {
+    await initBrowser();
+    const { urlOrSearch } = req.body;
+    let targetUrl = urlOrSearch;
+    if (!/^https?:\/\//i.test(urlOrSearch)) {
+        targetUrl = "https://www.google.com/search?q=" + encodeURIComponent(urlOrSearch);
+    }
+    try {
+        await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+        const screenshot = await page.screenshot({ type: "png" });
+        res.set("Content-Type", "image/png");
+        res.send(screenshot);
+    } catch (e) {
+        res.status(500).send("Error loading page: " + e.message);
+    }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Basic login simulation
+app.post("/login", async (req, res) => {
+    const { username, password } = req.body;
+    // You can integrate real login logic here
+    if (username && password) {
+        res.json({ success: true });
+    } else {
+        res.json({ success: false });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
