@@ -1,35 +1,37 @@
 import express from "express";
-import { WebSocketServer } from "ws";
 import { chromium } from "playwright";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-app.use(express.static("frontend")); // serves index.html
-
-const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-const wss = new WebSocketServer({ server });
-
-let browser, page;
+let browser;
 
 async function initBrowser() {
-    browser = await chromium.launch({ headless: true });
-    page = await browser.newPage();
+  if (!browser) {
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+    console.log("Chromium initialized");
+  }
+  return browser;
 }
 
-initBrowser();
+app.use(express.static(path.join(__dirname, "../frontend")));
 
-wss.on("connection", ws => {
-    ws.on("message", async msg => {
-        const data = JSON.parse(msg.toString());
-        if(!page) return;
-        if(data.command === "navigate") await page.goto(data.value);
-        if(data.command === "search") await page.goto(`https://www.google.com/search?q=${encodeURIComponent(data.value)}`);
-        if(data.command === "back") await page.goBack();
-        if(data.command === "forward") await page.goForward();
-
-        const screenshot = await page.screenshot();
-        ws.send(screenshot);
-    });
+app.get("/browse", async (req, res) => {
+  const url = req.query.url || "https://www.google.com";
+  const browser = await initBrowser();
+  const page = await browser.newPage();
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  const screenshot = await page.screenshot();
+  await page.close();
+  res.type("image/png").send(screenshot);
 });
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
