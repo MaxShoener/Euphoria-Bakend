@@ -1,21 +1,20 @@
-# Use official Node.js LTS
-FROM node:24
+# Use the official Playwright image (includes Chromium, Firefox, WebKit)
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy
 
 # Set working directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and install dependencies
-COPY package.json package-lock.json* ./
+# Copy package.json first (for caching npm install layer)
+COPY package.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy server code
+# Copy the rest of the app
 COPY . .
 
-# Install Playwright browsers
-RUN npx playwright install chromium
-
-# Expose port
+# Expose port (Render uses PORT env var)
 EXPOSE 10000
 
-# Run server
-CMD ["node", "server.js"]
+# Start the app
+CMD ["npm", "start"]
