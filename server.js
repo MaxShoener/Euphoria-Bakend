@@ -1,85 +1,77 @@
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import bodyParser from "body-parser";
+const express = require("express");
+const fetch = require("node-fetch");
+const { createProxyServer } = require("http-proxy");
+const { createServer } = require("http");
 
 const app = express();
+const proxy = createProxyServer({});
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+// Proxy normal HTTP(S) requests
+app.get("/proxy", async (req, res) => {
+  let targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Missing url parameter");
 
-const proxyUrl = "/proxy";
-
-app.all(proxyUrl, async (req, res) => {
   try {
-    const target = req.method === "GET" 
-      ? req.query.url 
-      : req.body.url;
-
-    if (!target) {
-      return res.status(400).send("Missing target URL");
-    }
-
-    const url = new URL(target);
-
-    // Forward headers & cookies
-    const headers = { ...req.headers };
-    delete headers.host;
-
-    const response = await fetch(url.href, {
-      method: req.method,
-      headers,
-      body: req.method !== "GET" ? req.body.body : undefined,
-      redirect: "manual"
+    const response = await fetch(targetUrl, {
+      headers: { "User-Agent": req.headers["user-agent"] }
     });
 
-    // Copy status and headers
-    res.status(response.status);
-    response.headers.forEach((value, key) => {
-      if (key.toLowerCase() === "set-cookie") {
-        res.append("set-cookie", value);
-      } else {
-        res.setHeader(key, value);
-      }
-    });
+    let contentType = response.headers.get("content-type") || "";
+    res.set("content-type", contentType);
 
-    // If HTML, rewrite links/forms
-    const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
       let text = await response.text();
 
-      // Rewrite form actions
+      // 🔄 Rewrite form actions
       text = text.replace(/<form([^>]*)action="([^"]*)"/gi, (m, attrs, action) => {
-        let newUrl = `/proxy?url=${encodeURIComponent(new URL(action, url).href)}`;
+        let newUrl = `/proxy?url=${encodeURIComponent(new URL(action, targetUrl).href)}`;
         return `<form${attrs}action="${newUrl}"`;
       });
 
-      // Rewrite <a href="...">
+      // 🔄 Rewrite links
       text = text.replace(/<a([^>]*)href="([^"]*)"/gi, (m, attrs, href) => {
-        let newUrl = `/proxy?url=${encodeURIComponent(new URL(href, url).href)}`;
+        let newUrl = `/proxy?url=${encodeURIComponent(new URL(href, targetUrl).href)}`;
         return `<a${attrs}href="${newUrl}"`;
       });
 
-      // Rewrite <script src="...">
+      // 🔄 Rewrite scripts
       text = text.replace(/<script([^>]*)src="([^"]*)"/gi, (m, attrs, src) => {
-        let newUrl = `/proxy?url=${encodeURIComponent(new URL(src, url).href)}`;
+        let newUrl = `/proxy?url=${encodeURIComponent(new URL(src, targetUrl).href)}`;
         return `<script${attrs}src="${newUrl}"`;
+      });
+
+      // 🔄 Rewrite WebSocket URLs
+      text = text.replace(/\b(wss?:\/\/[^\s'"]+)/gi, (m, wsUrl) => {
+        return `/proxy?url=${encodeURIComponent(wsUrl)}`;
       });
 
       res.send(text);
     } else {
       // Non-HTML (images, CSS, JS, etc.)
-      const buffer = await response.arrayBuffer();
-      res.send(Buffer.from(buffer));
+      const buffer = await response.buffer();
+      res.send(buffer);
     }
   } catch (err) {
-    console.error(err);
     res.status(500).send("Proxy error: " + err.message);
   }
 });
 
-app.listen(PORT, () => {
+// Create raw HTTP server to handle both HTTP + WebSockets
+const server = createServer(app);
+
+// WebSocket tunneling
+server.on("upgrade", (req, socket, head) => {
+  const urlObj = new URL(req.url, `http://${req.headers.host}`);
+  const targetUrl = urlObj.searchParams.get("url");
+
+  if (targetUrl && targetUrl.startsWith("ws")) {
+    proxy.ws(req, socket, head, { target: targetUrl, changeOrigin: true });
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
