@@ -1,52 +1,30 @@
 import express from 'express';
-import fetch from 'node-fetch';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { JSDOM } from 'jsdom';
+import fetch from 'node-fetch';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = process.env.PORT || 3000;
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// Serve frontend
+app.use(express.static(__dirname));
 
+// Simple proxy for CORS/logins/remote play
 app.get('/proxy', async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send('Missing URL');
 
   try {
-    const response = await fetch(target, { headers: { 'User-Agent': 'Euphoria/1.0' } });
-    const contentType = response.headers.get('content-type') || '';
-
-    if (contentType.includes('text/html')) {
-      const text = await response.text();
-      const dom = new JSDOM(text);
-      const document = dom.window.document;
-
-      // Rewrite all resources
-      ['script','link','img','iframe'].forEach(tag => {
-        document.querySelectorAll(tag).forEach(el => {
-          if(el.tagName==='LINK' && el.rel!=='stylesheet') return;
-          const attr = el.tagName==='LINK' ? 'href' : 'src';
-          if(el[attr]){
-            const absoluteUrl = new URL(el[attr], target).href;
-            el[attr] = '/proxy?url=' + encodeURIComponent(absoluteUrl);
-          }
-        });
-      });
-
-      res.set('Content-Type','text/html');
-      res.send(dom.serialize());
-    } else {
-      const buffer = await response.arrayBuffer();
-      res.set('Content-Type', contentType);
-      res.send(Buffer.from(buffer));
-    }
+    const response = await fetch(target);
+    const text = await response.text();
+    res.send(text);
   } catch (err) {
-    res.status(500).send('Proxy error: ' + err.message);
+    res.status(500).send(err.toString());
   }
 });
 
-app.use(express.static(__dirname));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Euphoria running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Euphoria backend running on port ${PORT}`);
+});
