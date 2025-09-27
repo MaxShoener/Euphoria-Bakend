@@ -1,33 +1,44 @@
-const express = require('express');
-const cors = require('cors');
-const { chromium } = require('playwright');
+import express from 'express';
+import cors from 'cors';
+import { chromium } from 'playwright';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/browse', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'No URL provided' });
+const browser = await chromium.launch({ headless: true });
+const sessions = new Map(); // sessionId -> context
 
-  let browser;
+// Browse route
+app.get('/browse', async (req, res) => {
+  let { url, session } = req.query;
+
+  if (!session) session = 'default';
+
+  // If user didn't type a proper URL, treat it as a search query
+  if (!url.startsWith('http')) {
+    url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+  }
+
+  // Create or reuse context
+  let context;
+  if (sessions.has(session)) {
+    context = sessions.get(session);
+  } else {
+    context = await browser.newContext();
+    sessions.set(session, context);
+  }
+
+  const page = await context.newPage();
   try {
-    // Launch Chromium using the bundled executable
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded' });
-
     const content = await page.content();
-    res.json({ html: content });
+    res.send(content);
   } catch (err) {
-    console.error('Error loading page:', err);
-    res.status(500).json({ error: 'Failed to load page' });
+    res.status(500).send(`Failed to load page: ${err.message}`);
   } finally {
-    if (browser) await browser.close();
+    await page.close();
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(3000, () => console.log('Euphoria backend running on port 3000'));
