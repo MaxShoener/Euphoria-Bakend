@@ -1,44 +1,33 @@
 import express from 'express';
-import cors from 'cors';
 import fetch from 'node-fetch';
 import { chromium } from 'playwright';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
-const PORT = process.env.PORT || 10000;
+const port = process.env.PORT || 10000;
 
 let browser;
 
 async function initBrowser() {
-    if (!browser) {
-        browser = await chromium.launch({ headless: true });
-    }
+  if (!browser) {
+    browser = await chromium.launch({ headless: true });
+  }
 }
 
 app.get('/browse', async (req, res) => {
-    const { url } = req.query;
-    if (!url) return res.status(400).send('No URL provided');
+  const target = req.query.url;
+  if (!target) return res.send('No URL provided');
 
+  try {
     await initBrowser();
-
     const page = await browser.newPage();
-    try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        const screenshotBuffer = await page.screenshot({ fullPage: true });
-        res.writeHead(200, {
-            'Content-Type': 'image/png',
-            'Content-Length': screenshotBuffer.length
-        });
-        res.end(screenshotBuffer);
-    } catch (err) {
-        res.status(500).send('Failed to load page: ' + err.message);
-    } finally {
-        await page.close();
-    }
+    await page.goto(target, { waitUntil: 'domcontentloaded' });
+
+    const content = await page.content();
+    await page.close();
+    res.send(content);
+  } catch (err) {
+    res.status(500).send(err.toString());
+  }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(port, () => console.log(`Server running on port ${port}`));
