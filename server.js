@@ -19,27 +19,45 @@ wss.on("connection", ws => {
   let intervalId;
 
   ws.on("message", async message => {
-    const { query } = JSON.parse(message);
+    const data = JSON.parse(message);
 
     try {
+      // Launch browser if not already
       if (!browser) {
         browser = await playwright.chromium.launch();
         page = await browser.newPage();
       }
 
-      await page.goto(query.startsWith("http") ? query : `https://www.google.com/search?q=${encodeURIComponent(query)}`);
-      
-      // Send first screenshot immediately
-      const screenshot = await page.screenshot({ type: "jpeg" });
-      ws.send(screenshot);
-
-      // Auto-stream every second
-      intervalId = setInterval(async () => {
-        if (ws.readyState === 1) {
-          const img = await page.screenshot({ type: "jpeg" });
-          ws.send(img);
+      // Handle navigation actions
+      if (data.action) {
+        switch(data.action) {
+          case "back": await page.goBack(); break;
+          case "forward": await page.goForward(); break;
+          case "reload": await page.reload(); break;
+          case "stop": clearInterval(intervalId); break;
         }
-      }, 1000);
+      }
+
+      // Handle new URL/search
+      if (data.query) {
+        await page.goto(data.query.startsWith("http") ? data.query : `https://www.google.com/search?q=${encodeURIComponent(data.query)}`);
+
+        // Start streaming screenshots
+        if (!intervalId) {
+          intervalId = setInterval(async () => {
+            if (ws.readyState === 1) {
+              const img = await page.screenshot({ type: "jpeg" });
+              ws.send(img);
+            }
+          }, 1000);
+        }
+      }
+
+      // Send first screenshot immediately
+      if (page) {
+        const screenshot = await page.screenshot({ type: "jpeg" });
+        ws.send(screenshot);
+      }
 
     } catch (err) {
       ws.send(JSON.stringify({ error: err.message }));
