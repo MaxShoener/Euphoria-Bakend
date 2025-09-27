@@ -1,46 +1,54 @@
+// server.js
 import express from 'express';
-import cors from 'cors';
+import { chromium } from 'playwright';
 import bodyParser from 'body-parser';
-import { chromium } from 'playwright';  // Ensure Playwright is installed
-import path from 'path';
+import cors from 'cors';
 
 const app = express();
-app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static('public')); // for frontend static files
+app.use(cors());
 
-let browser;
+let browser; 
 let context;
 
 async function initBrowser() {
   if (!browser) {
     browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: false, // headful mode for JS-heavy sites and login
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--use-fake-ui-for-media-stream', // for WebRTC test mode
+        '--use-fake-device-for-media-stream'
+      ]
     });
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: true, storageState: null });
   }
 }
 
-app.get('/browse', async (req, res) => {
+// Endpoint to browse a site
+app.post('/browse', async (req, res) => {
+  await initBrowser();
+  const { url } = req.body;
+  const page = await context.newPage();
   try {
-    await initBrowser();
-    const url = req.query.url;
-    if (!url) return res.status(400).send('Missing URL');
-    
-    const page = await context.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    const visitUrl = url?.startsWith('http') ? url : `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    await page.goto(visitUrl, { waitUntil: 'domcontentloaded' });
+
     const content = await page.content();
-    await page.close();
-    
     res.send(content);
   } catch (err) {
-    console.error('Error loading page:', err);
-    res.status(500).send('Failed to load page');
+    res.status(500).send(`Failed to load page: ${err.message}`);
+  } finally {
+    await page.close();
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Special streaming endpoint (Xbox Remote Play fallback)
+app.get('/stream', (req, res) => {
+  res.send('Xbox Remote Play / WebRTC not supported on Render. Use VPS/local server with GPU for streaming.');
+});
+
+app.listen(3000, () => {
+  console.log('Euphoria backend running on port 3000');
 });
