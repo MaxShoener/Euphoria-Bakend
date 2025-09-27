@@ -1,7 +1,12 @@
 import express from 'express';
+import cors from 'cors';
+import fetch from 'node-fetch';
 import { chromium } from 'playwright';
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+
 const PORT = process.env.PORT || 10000;
 
 let browser;
@@ -12,18 +17,28 @@ async function initBrowser() {
     }
 }
 
-app.use(express.json());
-app.use(express.static('../frontend')); // Serve your index.html
-
 app.get('/browse', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).send('No URL provided');
+
     await initBrowser();
-    const url = req.query.url || 'https://www.google.com';
+
     const page = await browser.newPage();
-    await page.goto(url);
-    const screenshot = await page.screenshot({ type: 'jpeg' });
-    await page.close();
-    res.set('Content-Type', 'image/jpeg');
-    res.send(screenshot);
+    try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        const screenshotBuffer = await page.screenshot({ fullPage: true });
+        res.writeHead(200, {
+            'Content-Type': 'image/png',
+            'Content-Length': screenshotBuffer.length
+        });
+        res.end(screenshotBuffer);
+    } catch (err) {
+        res.status(500).send('Failed to load page: ' + err.message);
+    } finally {
+        await page.close();
+    }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
