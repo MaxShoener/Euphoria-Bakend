@@ -1,14 +1,15 @@
 {
-  "name": "euphoria",
+  "name": "euphoria-backend",
   "version": "1.0.0",
-  "description": "Full browser streaming with login and navigation",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "playwright": "^1.43.0",
-    "body-parser": "^1.20.2"
+    "playwright": "^1.44.0",
+    "http-proxy": "^1.18.1",
+    "node-fetch": "^3.3.2"
   }
 }
