@@ -1,37 +1,48 @@
 import express from 'express';
+import cors from 'cors';
 import fetch from 'node-fetch';
-import session from 'express-session';
+import { WebSocketServer } from 'ws';
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+
 const PORT = process.env.PORT || 3000;
 
-// Session for logins & cookies
-app.use(session({
-  secret: 'euphoria-secret-key',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
-}));
-
-app.use(express.static('.')); // serve index.html
-
-// Proxy endpoint
-app.get('/proxy', async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send('Missing url');
-
-  try {
-    const response = await fetch(targetUrl, {
-      headers: { 'User-Agent': 'EuphoriaBrowser/1.0' },
-      redirect: 'follow'
-    });
-    const contentType = response.headers.get('content-type');
-    res.set('Content-Type', contentType || 'text/html');
-    const body = await response.text();
-    res.send(body);
-  } catch (err) {
-    res.status(500).send('Error fetching page: ' + err.message);
+// Login endpoint
+app.post('/login',(req,res)=>{
+  const { username,password } = req.body;
+  if(username && password){
+    res.json({ success:true, token:'fake-jwt-token' });
+  }else{
+    res.status(400).json({ success:false });
   }
 });
 
-app.listen(PORT, () => console.log(`Euphoria server running on port ${PORT}`));
+// Remote play WebSocket
+const wss = new WebSocketServer({ noServer:true });
+wss.on('connection', ws => {
+  ws.on('message', msg => {
+    console.log('Remote Play message:', msg.toString());
+    ws.send(`Echo: ${msg}`);
+  });
+});
+
+// Proxy for arbitrary URLs
+app.get('/proxy', async (req,res)=>{
+  try{
+    const url = req.query.url;
+    const response = await fetch(url);
+    const text = await response.text();
+    res.send(text);
+  } catch(e){
+    res.status(500).send('Failed to fetch');
+  }
+});
+
+const server = app.listen(PORT,()=>console.log(`Backend running on port ${PORT}`));
+server.on('upgrade',(req,socket,head)=>{
+  wss.handleUpgrade(req,socket,head,ws=>{
+    wss.emit('connection',ws,req);
+  });
+});
