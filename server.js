@@ -1,6 +1,6 @@
 import express from 'express';
-import fetch from 'node-fetch';
 import cors from 'cors';
+import { chromium } from 'playwright';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,33 +8,62 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const ALLOWED_ORIGINS = ['*'];
+const browser = await chromium.launch({ headless:true });
+const contexts = new Map(); // Map sessionID -> browser context
 
-// Simple proxy for browsing
+function getContext(sessionID) {
+  if(!contexts.has(sessionID)){
+    contexts.set(sessionID, browser.newContext({ storageState: undefined }));
+  }
+  return contexts.get(sessionID);
+}
+
+// Proxy for interactive browsing
 app.get('/browse', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send('No URL provided');
+  const { url, session } = req.query;
+  if(!url) return res.status(400).send('No URL provided');
+  const sessionID = session || 'default';
+  const context = await getContext(sessionID);
+  const page = await context.newPage();
+
   try {
-    const response = await fetch(url);
-    const html = await response.text();
-    res.send(html);
-  } catch (err) {
+    await page.goto(url, { waitUntil: 'networkidle' });
+    const content = await page.content();
+    await page.close();
+    res.send(content);
+  } catch(err) {
+    await page.close();
     res.status(500).send('Error loading page: ' + err.message);
   }
 });
 
-// Placeholder login API
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username && password) {
-    return res.json({ success: true, token: 'fake-jwt-token' });
+// Simple login endpoint
+app.post('/login', async (req, res) => {
+  const { username, password, session } = req.body;
+  if(!username || !password) return res.status(400).json({ success:false });
+
+  const sessionID = session || 'default';
+  const context = await getContext(sessionID);
+  const page = await context.newPage();
+
+  try {
+    // Replace with actual login logic for target sites
+    await page.goto('https://example.com/login');
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
+    await page.click('button[type="submit"]');
+    await page.waitForLoadState('networkidle');
+    await page.close();
+    res.json({ success:true, session:sessionID });
+  } catch(err){
+    await page.close();
+    res.status(500).json({ success:false, message: err.message });
   }
-  res.status(400).json({ success: false, message: 'Invalid credentials' });
 });
 
 // Remote play placeholder
-app.get('/remote-play', (req, res) => {
+app.get('/remote-play', async (req,res)=>{
   res.send('Remote play feature coming soon!');
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, ()=>console.log(`Server running on port ${PORT}`));
