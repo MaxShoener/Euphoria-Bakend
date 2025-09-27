@@ -1,41 +1,35 @@
-import express from "express";
-import { chromium } from "playwright";
-import cors from "cors";
+import express from 'express';
+import fetch from 'node-fetch';
+import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
+// Allow requests from your file-based frontend
 app.use(cors());
-app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("✅ Euphoria Backend Running");
-});
-
-// Proxy /browse?url=https://example.com
-app.get("/browse", async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send("Missing url parameter");
+app.get('/browse', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send('Missing URL');
 
   try {
-    const browser = await chromium.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // Fetch the target page
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Euphoria Browser Proxy)'
+      }
     });
-    const context = await browser.newContext();
-    const page = await context.newPage();
 
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-
-    const content = await page.content();
-    await browser.close();
-
-    res.send(content);
+    // Stream the content
+    const contentType = response.headers.get('content-type') || 'text/html';
+    res.setHeader('Content-Type', contentType);
+    response.body.pipe(res);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Error loading page");
+    res.status(500).send('Failed to fetch the page.');
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Euphoria backend running on port ${PORT}`);
 });
