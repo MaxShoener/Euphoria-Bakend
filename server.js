@@ -1,33 +1,41 @@
-import express from 'express';
-import fetch from 'node-fetch';
-import { chromium } from 'playwright';
+import express from "express";
+import { chromium } from "playwright";
+import cors from "cors";
 
 const app = express();
-const port = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-let browser;
+app.use(cors());
+app.use(express.json());
 
-async function initBrowser() {
-  if (!browser) {
-    browser = await chromium.launch({ headless: true });
-  }
-}
+app.get("/", (req, res) => {
+  res.send("✅ Euphoria Backend Running");
+});
 
-app.get('/browse', async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.send('No URL provided');
+// Proxy /browse?url=https://example.com
+app.get("/browse", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send("Missing url parameter");
 
   try {
-    await initBrowser();
-    const page = await browser.newPage();
-    await page.goto(target, { waitUntil: 'domcontentloaded' });
+    const browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await page.goto(url, { waitUntil: "domcontentloaded" });
 
     const content = await page.content();
-    await page.close();
+    await browser.close();
+
     res.send(content);
   } catch (err) {
-    res.status(500).send(err.toString());
+    console.error(err);
+    res.status(500).send("Error loading page");
   }
 });
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
