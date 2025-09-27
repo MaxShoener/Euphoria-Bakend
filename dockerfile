@@ -4,19 +4,20 @@ FROM node:24-bullseye
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and server.js first (for better caching)
-COPY package.json server.js ./
-# Copy frontend
-COPY index.html ./public/index.html
+# Copy package.json and package-lock.json first
+COPY package*.json ./
 
-# Install dependencies
+# Install Node dependencies
 RUN npm install
 
 # Install Playwright browsers
 RUN npx playwright install chromium
 
-# Expose port
+# Copy the rest of the backend files
+COPY . .
+
+# Expose backend port
 EXPOSE 10000
 
 # Start the server
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
