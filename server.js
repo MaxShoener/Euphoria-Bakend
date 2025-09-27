@@ -1,71 +1,35 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import playwright from "playwright";
+import { chromium } from "playwright";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// Serve static frontend
-app.use(express.static("frontend"));
+app.use(express.static("frontend")); // serves index.html
 
-// Start HTTP server
-const server = app.listen(port, () => console.log(`Backend running on port ${port}`));
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// WebSocket server
 const wss = new WebSocketServer({ server });
 
+let browser, page;
+
+async function initBrowser() {
+    browser = await chromium.launch({ headless: true });
+    page = await browser.newPage();
+}
+
+initBrowser();
+
 wss.on("connection", ws => {
-  let browser, page;
-  let intervalId;
+    ws.on("message", async msg => {
+        const data = JSON.parse(msg.toString());
+        if(!page) return;
+        if(data.command === "navigate") await page.goto(data.value);
+        if(data.command === "search") await page.goto(`https://www.google.com/search?q=${encodeURIComponent(data.value)}`);
+        if(data.command === "back") await page.goBack();
+        if(data.command === "forward") await page.goForward();
 
-  ws.on("message", async message => {
-    const data = JSON.parse(message);
-
-    try {
-      // Launch browser if not already
-      if (!browser) {
-        browser = await playwright.chromium.launch();
-        page = await browser.newPage();
-      }
-
-      // Handle navigation actions
-      if (data.action) {
-        switch(data.action) {
-          case "back": await page.goBack(); break;
-          case "forward": await page.goForward(); break;
-          case "reload": await page.reload(); break;
-          case "stop": clearInterval(intervalId); break;
-        }
-      }
-
-      // Handle new URL/search
-      if (data.query) {
-        await page.goto(data.query.startsWith("http") ? data.query : `https://www.google.com/search?q=${encodeURIComponent(data.query)}`);
-
-        // Start streaming screenshots
-        if (!intervalId) {
-          intervalId = setInterval(async () => {
-            if (ws.readyState === 1) {
-              const img = await page.screenshot({ type: "jpeg" });
-              ws.send(img);
-            }
-          }, 1000);
-        }
-      }
-
-      // Send first screenshot immediately
-      if (page) {
-        const screenshot = await page.screenshot({ type: "jpeg" });
+        const screenshot = await page.screenshot();
         ws.send(screenshot);
-      }
-
-    } catch (err) {
-      ws.send(JSON.stringify({ error: err.message }));
-    }
-  });
-
-  ws.on("close", async () => {
-    clearInterval(intervalId);
-    if (browser) await browser.close();
-  });
+    });
 });
