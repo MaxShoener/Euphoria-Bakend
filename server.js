@@ -1,116 +1,63 @@
 import express from "express";
 import fetch from "node-fetch";
-import { load } from "cheerio"; // ✅ correct import for cheerio
-import { createProxyServer } from "http-proxy";
-import http from "http";
+import httpProxy from "http-proxy";
 import { WebSocketServer } from "ws";
-import url from "url";
+import * as cheerio from "cheerio";
+import { JSDOM } from "jsdom";
+import { chromium } from "playwright";
 
+const { createProxyServer } = httpProxy;
 const app = express();
-const proxy = createProxyServer({});
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// --- Proxy setup ---
+const proxy = createProxyServer({ changeOrigin: true, ws: true });
 
-// --- Simple route check ---
-app.get("/", (req, res) => {
-  res.send("✅ Euphoria backend is running");
+proxy.on("error", (err, req, res) => {
+  console.error("Proxy error:", err.message);
+  if (!res.headersSent) {
+    res.writeHead(500, { "Content-Type": "text/plain" });
+  }
+  res.end("Proxy error: " + err.message);
 });
 
 // --- Proxy endpoint ---
 app.get("/browse", async (req, res) => {
   try {
     let targetUrl = req.query.url;
-
     if (!targetUrl) {
-      return res.status(400).send("❌ No URL provided");
+      return res.status(400).send("Missing url param");
     }
 
-    // Add protocol if missing
     if (!/^https?:\/\//i.test(targetUrl)) {
-      targetUrl = "https://" + targetUrl;
+      targetUrl = "https://www.google.com/search?q=" + encodeURIComponent(targetUrl);
     }
 
-    const response = await fetch(targetUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36",
-      },
+    const response = await fetch(targetUrl, { redirect: "follow" });
+    let html = await response.text();
+
+    // Rewrite relative links to pass through proxy
+    const $ = cheerio.load(html);
+    $("a[href]").each((_, el) => {
+      const href = $(el).attr("href");
+      if (href && !href.startsWith("http")) {
+        $(el).attr("href", `/browse?url=${encodeURIComponent(new URL(href, targetUrl).href)}`);
+      }
     });
 
-    const contentType = response.headers.get("content-type");
-    const buffer = await response.buffer();
-
-    // If HTML, rewrite links to pass through proxy
-    if (contentType && contentType.includes("text/html")) {
-      const $ = load(buffer.toString());
-
-      $("a").each((_, el) => {
-        let href = $(el).attr("href");
-        if (href && !href.startsWith("javascript:") && !href.startsWith("#")) {
-          if (href.startsWith("/")) {
-            href = new URL(href, targetUrl).href;
-          }
-          $(el).attr(
-            "href",
-            `/browse?url=${encodeURIComponent(href)}`
-          );
-        }
-      });
-
-      $("form").each((_, el) => {
-        let action = $(el).attr("action");
-        if (action && !action.startsWith("javascript:")) {
-          if (action.startsWith("/")) {
-            action = new URL(action, targetUrl).href;
-          }
-          $(el).attr(
-            "action",
-            `/browse?url=${encodeURIComponent(action)}`
-          );
-        }
-      });
-
-      res.set("content-type", "text/html");
-      res.send($.html());
-    } else {
-      // Pass non-HTML directly (CSS, JS, images, etc.)
-      res.set("content-type", contentType || "application/octet-stream");
-      res.send(buffer);
-    }
+    res.send($.html());
   } catch (err) {
-    console.error("Proxy GET error:", err.message);
-    res.status(500).send("❌ Error loading page");
+    console.error("Proxy GET error:", err);
+    res.status(500).send("Error loading page");
   }
 });
 
 // --- WebSocket proxy ---
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-wss.on("connection", (client, req) => {
-  const params = new URLSearchParams(req.url.replace("/?", ""));
-  const target = params.get("target");
-
-  if (!target) {
-    client.close();
-    return;
-  }
-
-  const targetWs = new WebSocket(target);
-
-  targetWs.on("open", () => {
-    client.on("message", (msg) => targetWs.send(msg));
-    targetWs.on("message", (msg) => client.send(msg));
-  });
-
-  targetWs.on("close", () => client.close());
-  targetWs.on("error", () => client.close());
+const server = app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
 });
-
-// --- Start server ---
-server.listen(PORT, () => {
-  console.log(`✅ Euphoria backend running on port ${PORT}`);
+const wss = new WebSocketServer({ server });
+wss.on("connection", (ws, req) => {
+  console.log("WebSocket client connected");
+  ws.on("message", msg => console.log("WS message:", msg.toString()));
 });
