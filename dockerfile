@@ -1,20 +1,23 @@
-# Use official Node.js LTS image
-FROM node:22-bullseye
+# Use Node.js LTS
+FROM node:22
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies and Playwright with browsers
-RUN npm install && npx playwright install --with-deps chromium
+# Install dependencies
+RUN npm install
 
-# Copy backend source code
-COPY server.js ./
+# Install Chromium for Playwright (needed for some sites)
+RUN npx playwright install --with-deps chromium
 
-# Expose port
-EXPOSE 10000
+# Copy source code
+COPY . .
 
-# Start backend
-CMD ["npm", "start"]
+# Expose app port
+EXPOSE 3000
+
+# Run server
+CMD [ "npm", "start" ]
