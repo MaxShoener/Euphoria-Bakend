@@ -5,14 +5,14 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx playwright install --with-deps chromium"
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "cheerio": "^1.0.0-rc.12",
-    "playwright": "^1.42.0",
-    "ws": "^8.16.0",
-    "tough-cookie": "^4.1.3",
-    "axios": "^1.6.1"
+    "http-proxy-middleware": "^2.0.6",
+    "playwright": "^1.44.0",
+    "ws": "^8.17.0",
+    "node-fetch": "^3.3.2",
+    "cheerio": "^1.0.0-rc.12"
   }
 }
