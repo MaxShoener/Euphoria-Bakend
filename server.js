@@ -1,61 +1,72 @@
-import express from 'express';
-import { chromium } from 'playwright';
-import cheerio from 'cheerio';
-import WebSocket, { WebSocketServer } from 'ws';
-import { readFile } from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import axios from 'axios';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import express from "express";
+import { chromium } from "playwright";
+import { createProxyMiddleware } from "http-proxy-middleware";
+import fetch from "node-fetch";
+import cheerio from "cheerio";
+import WebSocket, { WebSocketServer } from "ws";
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// WebSocket server for frontend logins or session data
-const wss = new WebSocketServer({ noServer: true });
-wss.on('connection', (ws) => {
-  ws.on('message', (msg) => console.log('WS message:', msg.toString()));
-  ws.send('Connected to Euphoria backend WebSocket');
-});
-
-// Playwright browser pool
 let browser;
-(async () => {
-  browser = await chromium.launch({ headless: true });
-})();
 
-app.get('/', async (req, res) => {
-  res.send('Euphoria Backend Running');
-});
+async function initBrowser() {
+  if (!browser) {
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+    console.log("Playwright browser initialized");
+  }
+}
 
-app.get('/browse', async (req, res) => {
+app.get("/browse", async (req, res) => {
+  await initBrowser();
   const { url } = req.query;
-  if (!url) return res.status(400).send('No URL provided');
+  if (!url) return res.status(400).send("Missing url parameter");
 
   try {
-    // Proxy GET request using axios to avoid SSL mismatch
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+
+    // Grab page content
+    const html = await page.content();
+    await context.close();
+
+    // Use Cheerio to rewrite URLs for proxy if needed
+    const $ = cheerio.load(html);
+    $("a").each((_, el) => {
+      const href = $(el).attr("href");
+      if (href && href.startsWith("http")) {
+        $(el).attr("href", `/browse?url=${encodeURIComponent(href)}`);
+      }
     });
-    const contentType = response.headers['content-type'] || 'text/html';
-    res.setHeader('Content-Type', contentType);
-    res.send(response.data);
+
+    res.send($.html());
   } catch (err) {
-    console.error('Proxy GET error:', err.message);
-    res.status(500).send('Error loading page');
+    console.error(err);
+    res.status(500).send("Error loading page");
   }
 });
 
-// Serve static frontend if needed
-app.use('/static', express.static(path.join(__dirname, 'frontend')));
+// Basic WebSocket proxy
+const wss = new WebSocketServer({ noServer: true });
 
-// Upgrade HTTP server for WebSocket
-const server = app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
-server.on('upgrade', (request, socket, head) => {
+app.server = app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
+});
+
+app.server.on("upgrade", (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
+    wss.emit("connection", ws, request);
   });
 });
+
+wss.on("connection", (ws, req) => {
+  console.log("WebSocket connected");
+  ws.on("message", (msg) => {
+    console.log("WS message:", msg.toString());
+  });
+});
+
