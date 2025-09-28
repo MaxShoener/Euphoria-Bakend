@@ -1,63 +1,61 @@
-import express from "express";
-import fetch from "node-fetch";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import { WebSocketServer } from "ws";
-import cors from "cors";
+import express from 'express';
+import { chromium } from 'playwright';
+import cheerio from 'cheerio';
+import WebSocket, { WebSocketServer } from 'ws';
+import { readFile } from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import axios from 'axios';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(cors());
-app.use(express.json());
+// WebSocket server for frontend logins or session data
+const wss = new WebSocketServer({ noServer: true });
+wss.on('connection', (ws) => {
+  ws.on('message', (msg) => console.log('WS message:', msg.toString()));
+  ws.send('Connected to Euphoria backend WebSocket');
+});
 
-// Proxy GET requests to bypass CORS & HTTPS issues
-app.get("/browse", async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).send("Missing URL");
+// Playwright browser pool
+let browser;
+(async () => {
+  browser = await chromium.launch({ headless: true });
+})();
+
+app.get('/', async (req, res) => {
+  res.send('Euphoria Backend Running');
+});
+
+app.get('/browse', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('No URL provided');
 
   try {
-    const target = decodeURIComponent(url);
-
-    // For Google search, use a proper User-Agent
-    const headers = {
-      "User-Agent": req.headers["user-agent"] || "Mozilla/5.0",
-      Accept: "*/*",
-    };
-
-    const response = await fetch(target, { headers });
-    const html = await response.text();
-
-    res.send(html);
+    // Proxy GET request using axios to avoid SSL mismatch
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const contentType = response.headers['content-type'] || 'text/html';
+    res.setHeader('Content-Type', contentType);
+    res.send(response.data);
   } catch (err) {
-    console.error("Proxy GET error:", err);
-    res.status(500).send("Error loading page");
+    console.error('Proxy GET error:', err.message);
+    res.status(500).send('Error loading page');
   }
 });
 
-// WebSocket server for live streaming / logins
-const wss = new WebSocketServer({ noServer: true });
+// Serve static frontend if needed
+app.use('/static', express.static(path.join(__dirname, 'frontend')));
 
-wss.on("connection", (ws) => {
-  console.log("WebSocket connected");
-  ws.on("message", (msg) => {
-    console.log("WS message:", msg.toString());
-    // handle login/session streaming
-    ws.send(`Server received: ${msg}`);
-  });
-});
-
-// Upgrade HTTP server for WebSockets
-const server = app.listen(PORT, () =>
-  console.log(`Backend running on port ${PORT}`)
-);
-
-server.on("upgrade", (request, socket, head) => {
+// Upgrade HTTP server for WebSocket
+const server = app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit("connection", ws, request);
+    wss.emit('connection', ws, request);
   });
-});
-
-// Fallback route
-app.use((req, res) => {
-  res.status(404).send("Endpoint not found");
 });
