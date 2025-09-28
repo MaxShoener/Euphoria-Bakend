@@ -4,16 +4,19 @@ import * as cheerio from "cheerio";
 import { CookieJar } from "tough-cookie";
 import { URL } from "url";
 import bodyParser from "body-parser";
+import http from "http";
+import { createProxyServer } from "http-proxy";
 
 const app = express();
+const server = http.createServer(app);
+const proxy = createProxyServer({ ws: true, changeOrigin: true });
 const PORT = process.env.PORT || 3000;
 const jar = new CookieJar();
 
-// Middleware to parse form submissions
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// Helper: proxy a request
+// Helper: proxy HTTP requests
 async function proxyRequest(method, target, body, headers) {
   const targetUrl = new URL(target);
   const cookieHeader = await jar.getCookieString(targetUrl.href);
@@ -22,8 +25,11 @@ async function proxyRequest(method, target, body, headers) {
     method,
     headers: {
       ...headers,
+      Host: targetUrl.host, // <-- fix TLS error
       Cookie: cookieHeader,
-      "User-Agent": headers["user-agent"] || "Mozilla/5.0",
+      "User-Agent":
+        headers["user-agent"] ||
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36",
     },
     body,
   });
@@ -41,7 +47,6 @@ app.get("/browse", async (req, res) => {
   let target = req.query.url;
   if (!target) return res.status(400).send("Missing url param");
 
-  // If not full URL → search Google
   if (!/^https?:\/\//i.test(target)) {
     target = `https://www.google.com/search?q=${encodeURIComponent(target)}`;
   }
@@ -50,12 +55,12 @@ app.get("/browse", async (req, res) => {
     const response = await proxyRequest("GET", target, null, req.headers);
     await handleResponse(response, target, res);
   } catch (err) {
-    console.error(err);
+    console.error("Proxy GET error:", err.message);
     res.status(500).send("Proxy GET error: " + err.message);
   }
 });
 
-// POST proxy (for logins, forms, etc.)
+// POST proxy
 app.post("/browse", async (req, res) => {
   let target = req.query.url;
   if (!target) return res.status(400).send("Missing url param");
@@ -73,12 +78,33 @@ app.post("/browse", async (req, res) => {
 
     await handleResponse(response, target, res);
   } catch (err) {
-    console.error(err);
+    console.error("Proxy POST error:", err.message);
     res.status(500).send("Proxy POST error: " + err.message);
   }
 });
 
-// Handle rewriting & responses
+// WebSocket proxy
+server.on("upgrade", (req, socket, head) => {
+  try {
+    const urlObj = new URL(req.url, `http://${req.headers.host}`);
+    const target = urlObj.searchParams.get("url");
+    if (!target) {
+      socket.destroy();
+      return;
+    }
+
+    proxy.ws(req, socket, head, {
+      target,
+      changeOrigin: true,
+      ws: true,
+    });
+  } catch (err) {
+    console.error("WebSocket proxy error:", err.message);
+    socket.destroy();
+  }
+});
+
+// Rewrite & respond
 async function handleResponse(response, target, res) {
   const contentType = response.headers.get("content-type");
 
@@ -87,7 +113,7 @@ async function handleResponse(response, target, res) {
     const $ = cheerio.load(html);
     const targetUrl = new URL(target);
 
-    // Rewrite links, scripts, images
+    // Rewrite links
     $("a[href]").each((_, el) => {
       const href = $(el).attr("href");
       if (href && !href.startsWith("javascript:")) {
@@ -98,6 +124,7 @@ async function handleResponse(response, target, res) {
       }
     });
 
+    // Rewrite assets
     $("img[src], script[src], link[href]").each((_, el) => {
       const attr = el.tagName === "link" ? "href" : "src";
       const val = $(el).attr(attr);
@@ -109,6 +136,7 @@ async function handleResponse(response, target, res) {
       }
     });
 
+    // Rewrite forms → proxy through /browse
     $("form[action]").each((_, el) => {
       const action = $(el).attr("action");
       if (action) {
@@ -117,19 +145,18 @@ async function handleResponse(response, target, res) {
           `/browse?url=${encodeURIComponent(new URL(action, targetUrl).href)}`
         );
       }
-      $(el).attr("method", "post"); // force POST proxy
+      $(el).attr("method", "post");
     });
 
     res.set("content-type", "text/html");
     res.send($.html());
   } else {
-    // Pass-through for assets
     res.set("content-type", contentType || "application/octet-stream");
     const buf = await response.arrayBuffer();
     res.send(Buffer.from(buf));
   }
 }
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Proxy running at http://localhost:${PORT}`);
 });
