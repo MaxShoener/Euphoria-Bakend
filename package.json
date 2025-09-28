@@ -1,6 +1,7 @@
 {
   "name": "euphoria-backend",
   "version": "1.0.0",
+  "description": "Backend server for Euphoria proxy with cookie & login handling",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -13,5 +14,8 @@
     "node-fetch": "^3.3.2",
     "tough-cookie": "^4.1.4",
     "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
