@@ -1,47 +1,42 @@
 // server.js
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Simple health check
-app.get("/", (req, res) => {
-  res.send("✅ Euphoria backend running!");
-});
+// Serve the frontend
+app.use(express.static(path.join(__dirname, "/")));
 
-// Proxy example: /proxy -> https://www.google.com
+// --- Proxy route example ---
+// Replace TARGET_URL with any backend service you want to proxy
+const TARGET_URL = "https://example.com"; // Change if needed
 app.use(
   "/proxy",
   createProxyMiddleware({
-    target: "https://www.google.com",
+    target: TARGET_URL,
     changeOrigin: true,
-    pathRewrite: {
-      "^/proxy": "",
-    },
+    pathRewrite: { "^/proxy": "" }
   })
 );
 
-// Example API endpoint
-app.get("/api/fetch", async (req, res) => {
-  try {
-    const response = await fetch("https://jsonplaceholder.typicode.com/todos/1");
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Fetch failed", details: err.message });
-  }
+// Health check
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", message: "Euphoria backend running!" });
 });
 
-// Catch-all for unknown routes
-app.use((req, res) => {
-  res.status(404).send("Cannot GET " + req.originalUrl);
+// Catch-all route to serve frontend for SPA
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // Start server
