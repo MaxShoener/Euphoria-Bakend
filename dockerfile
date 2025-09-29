@@ -1,16 +1,20 @@
+# Use official Node.js LTS
 FROM node:22
 
-WORKDIR /usr/src/app
+# Set working directory
+WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
 
-RUN npm install
+# Install dependencies
+RUN npm install --omit=dev
 
-# Install Chromium for Playwright (some sites need it)
-RUN npx playwright install --with-deps chromium
-
+# Copy app files
 COPY . .
 
+# Expose backend port
 EXPOSE 3000
 
+# Start app
 CMD ["npm", "start"]
