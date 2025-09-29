@@ -1,65 +1,57 @@
+// server.js
 import express from "express";
+import fetch from "node-fetch";
 import cors from "cors";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import url from "url";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
 
-// ✅ Health check
+// Health check
 app.get("/", (req, res) => {
   res.send("✅ Euphoria backend running!");
 });
 
-/**
- * 🔄 Dynamic Proxy:
- * Usage:
- *   /proxy?url=https://www.google.com/search?q=test
- */
-app.use("/proxy", (req, res, next) => {
+// Proxy endpoint
+app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
-
   if (!targetUrl) {
-    return res.status(400).json({ error: "Missing ?url= query parameter" });
+    return res.status(400).send("❌ Missing url parameter");
   }
 
   try {
-    const parsedUrl = new url.URL(targetUrl);
+    const response = await fetch(targetUrl, {
+      method: "GET",
+      headers: {
+        "user-agent":
+          req.headers["user-agent"] ||
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        cookie: req.headers["cookie"] || "",
+      },
+    });
 
-    return createProxyMiddleware({
-      target: `${parsedUrl.protocol}//${parsedUrl.host}`,
-      changeOrigin: true,
-      secure: true,
-      followRedirects: true,
-      pathRewrite: {
-        "^/proxy": "", // Remove /proxy prefix
-      },
-      router: () => parsedUrl.origin, // Ensure proper host
-      onProxyReq: (proxyReq, req) => {
-        // Rebuild path for correct routing
-        proxyReq.path = parsedUrl.pathname + (parsedUrl.search || "");
-      },
-      onError: (err, req, res) => {
-        console.error("❌ Proxy error:", err.message);
-        res.status(502).json({ error: "Proxy request failed" });
-      },
-    })(req, res, next);
+    // Forward headers
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "content-encoding") {
+        res.setHeader(key, value);
+      }
+    });
+
+    const body = await response.buffer();
+    res.status(response.status).send(body);
   } catch (err) {
-    return res.status(400).json({ error: "Invalid URL" });
+    console.error("❌ Proxy error:", err);
+    res.status(500).send("Proxy failed: " + err.message);
   }
 });
 
-// Example search test route (for debugging frontend)
-app.get("/search", (req, res) => {
-  const { q } = req.query;
-  if (!q) return res.status(400).json({ error: "Missing query" });
-  res.json({ result: `You searched for: ${q}` });
+// Catch-all for unknown routes
+app.use((req, res) => {
+  res.status(404).send("❌ Not Found");
 });
 
-// ✅ Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Euphoria backend running on port ${PORT}`);
+  console.log(`🚀 Backend running on port ${PORT}`);
 });
