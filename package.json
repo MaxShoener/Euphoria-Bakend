@@ -5,12 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx playwright install chromium"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "http-proxy": "^1.18.1",
     "cors": "^2.8.5",
-    "playwright": "^1.42.0"
+    "express": "^4.21.1",
+    "http-proxy-middleware": "^2.0.6",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
