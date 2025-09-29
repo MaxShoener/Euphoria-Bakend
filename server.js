@@ -1,70 +1,80 @@
+// server.js
 import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { WebSocketServer } from "ws";
-import { createServer } from "http";
-import cors from "cors";
+import http from "http";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: "*" }));
+app.use(cors());
+app.use(express.json());
 
-// ✅ Health check
-app.get("/", (req, res) => {
-  res.send("✅ Euphoria Backend is running");
-});
-
-/**
- * 🔹 Dynamic proxy route
- */
-app.use("/browse", (req, res, next) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) {
-    return res.status(400).send("Missing url query parameter");
-  }
-
+// 🔹 Basic fetch endpoint
+app.get("/browse", async (req, res) => {
   try {
-    const target = new URL(targetUrl);
+    const { url } = req.query;
+    if (!url) {
+      return res.status(400).json({ error: "Missing ?url=" });
+    }
 
-    console.log(`🌐 Proxying request → ${target.href}`);
+    const response = await fetch(url, {
+      headers: { "User-Agent": req.headers["user-agent"] || "Mozilla/5.0" },
+    });
 
-    return createProxyMiddleware({
-      target: target.origin,
-      changeOrigin: true,
-      ws: true,
-      secure: false, // bypass cert altname mismatch
-      followRedirects: true,
-      pathRewrite: {
-        "^/browse": "" // strip /browse prefix
-      },
-      onProxyReq: (proxyReq, req) => {
-        proxyReq.setHeader("host", target.host);
-      },
-      onError: (err, req, res) => {
-        console.error("❌ Proxy Error:", err.message);
-        if (!res.headersSent) {
-          res.status(502).send(`Error loading ${targetUrl}`);
-        }
-      }
-    })(req, res, next);
+    const contentType = response.headers.get("content-type");
+    res.set("content-type", contentType);
+
+    // Pass through body
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Invalid URL:", targetUrl);
-    res.status(400).send("Invalid URL");
+    console.error("Proxy GET error:", err.message);
+    res.status(500).json({ error: "Proxy failed", details: err.message });
   }
 });
 
-// ✅ WebSocket support
-const server = createServer(app);
+// 🔹 Full proxy route for logins, redirects, cookies, etc.
+app.use(
+  "/proxy",
+  createProxyMiddleware({
+    changeOrigin: true,
+    secure: false,
+    target: "http://dummy", // placeholder, will be dynamically set below
+    router: (req) => {
+      // Extract real target from query ?url=
+      const url = new URL(req.url, "http://localhost");
+      const target = url.searchParams.get("url");
+      if (!target) {
+        return "http://example.org";
+      }
+      return target;
+    },
+    pathRewrite: {
+      "^/proxy": "",
+    },
+    ws: true,
+    logLevel: "debug",
+  })
+);
+
+// 🔹 Setup WebSocket server (proxy pass-through)
+const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws) => {
-  console.log("🔗 New WebSocket connection");
-  ws.on("message", (msg) => {
-    console.log("📩 WS message:", msg.toString());
+wss.on("connection", (ws, req) => {
+  console.log("WebSocket client connected");
+
+  // This is a simple passthrough, you might extend later
+  ws.on("message", (message) => {
+    console.log("Received WS message:", message.toString());
   });
+
+  ws.on("close", () => console.log("WebSocket client disconnected"));
 });
 
-// ✅ Start server on all interfaces
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Euphoria backend running at http://0.0.0.0:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`✅ Euphoria backend running on port ${PORT}`);
 });
