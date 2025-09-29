@@ -26,27 +26,29 @@ app.use("/browse", (req, res, next) => {
   try {
     const target = new URL(targetUrl);
 
-    // Create proxy on the fly with correct target
+    console.log(`🌐 Proxying request → ${target.href}`);
+
     return createProxyMiddleware({
       target: target.origin,
       changeOrigin: true,
       ws: true,
-      secure: false, // avoid TLS altname mismatch
+      secure: false, // bypass cert altname mismatch
+      followRedirects: true,
       pathRewrite: {
-        "^/browse": "" // forward everything after /browse
+        "^/browse": "" // strip /browse prefix
       },
-      onProxyReq: (proxyReq) => {
+      onProxyReq: (proxyReq, req) => {
         proxyReq.setHeader("host", target.host);
       },
       onError: (err, req, res) => {
-        console.error("Proxy Error:", err.message);
+        console.error("❌ Proxy Error:", err.message);
         if (!res.headersSent) {
-          res.status(502).send("Error loading page.");
+          res.status(502).send(`Error loading ${targetUrl}`);
         }
       }
     })(req, res, next);
   } catch (err) {
-    console.error("Invalid URL:", targetUrl);
+    console.error("❌ Invalid URL:", targetUrl);
     res.status(400).send("Invalid URL");
   }
 });
@@ -56,13 +58,13 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws) => {
-  console.log("New WebSocket connection");
+  console.log("🔗 New WebSocket connection");
   ws.on("message", (msg) => {
-    console.log("WS message:", msg.toString());
+    console.log("📩 WS message:", msg.toString());
   });
 });
 
-// ✅ Start server
-server.listen(PORT, () => {
-  console.log(`🚀 Euphoria backend running on port ${PORT}`);
+// ✅ Start server on all interfaces
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Euphoria backend running at http://0.0.0.0:${PORT}`);
 });
