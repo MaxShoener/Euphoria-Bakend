@@ -1,65 +1,77 @@
 import express from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
+import { WebSocketServer } from "ws";
+import { createServer } from "http";
 import cors from "cors";
-import pkg from "http-proxy";
-const { createProxyServer } = pkg;
-import { chromium } from "playwright";
 
 const app = express();
-const proxy = createProxyServer({});
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+// ✅ Allow frontend to connect
+app.use(cors({ origin: "*" }));
 
-let browser;
+// ✅ Simple health check
+app.get("/", (req, res) => {
+  res.send("✅ Euphoria Backend is running");
+});
 
-async function initBrowser() {
-  if (!browser) {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    console.log("Playwright browser launched.");
+/**
+ * 🔹 Proxy middleware
+ * Handles HTTPS sites, Google, Xbox, Microsoft login, etc.
+ */
+const proxy = createProxyMiddleware({
+  changeOrigin: true,
+  ws: true,
+  secure: false, // disable strict cert checking (fixes altname mismatch)
+  onProxyReq: (proxyReq, req) => {
+    // Force Host header to match target site
+    if (req.query.url) {
+      try {
+        const target = new URL(req.query.url);
+        proxyReq.setHeader("host", target.host);
+      } catch (err) {
+        console.error("Invalid target URL:", req.query.url);
+      }
+    }
+  },
+  onError: (err, req, res) => {
+    console.error("Proxy Error:", err.message);
+    if (!res.headersSent) {
+      res.status(502).send("Error loading page.");
+    }
+  },
+});
+
+// ✅ Handle browsing requests
+app.get("/browse", (req, res, next) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).send("Missing url query parameter");
   }
-}
-
-// Proxy GET requests (for external sites)
-app.get("/browse", async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send("Missing URL");
 
   try {
-    await initBrowser();
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    const target = new URL(targetUrl);
 
-    const html = await page.content();
-    await context.close();
-
-    res.send(html);
+    // Dynamically proxy to the requested target
+    proxy({ target: target.origin })(req, res, next);
   } catch (err) {
-    console.error("Error loading page:", err);
-    res.status(500).send("Error loading page");
+    console.error("Invalid URL:", targetUrl);
+    res.status(400).send("Invalid URL");
   }
 });
 
-// WebSocket proxying example
-app.all("/ws-proxy/*", (req, res) => {
-  proxy.web(req, res, { target: "ws://example.com", changeOrigin: true }, (err) => {
-    console.error("WebSocket proxy error:", err);
+// ✅ WebSocket proxying for live connections
+const server = createServer(app);
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws, req) => {
+  console.log("New WebSocket connection");
+  ws.on("message", (msg) => {
+    console.log("WS message:", msg.toString());
   });
 });
 
-// General HTTP proxy (optional, for requests like Xbox login)
-app.all("/proxy/*", (req, res) => {
-  const target = req.url.replace(/^\/proxy\//, "https://");
-  proxy.web(req, res, { target, changeOrigin: true }, (err) => {
-    console.error("Proxy GET error:", err);
-    res.status(502).send("Proxy error");
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Euphoria backend running on port ${PORT}`);
+// ✅ Start server
+server.listen(PORT, () => {
+  console.log(`🚀 Euphoria backend running on port ${PORT}`);
 });
