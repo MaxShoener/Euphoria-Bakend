@@ -1,45 +1,46 @@
 // server.js
 import express from "express";
 import cors from "cors";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Serve the frontend
-app.use(express.static(path.join(__dirname, "/")));
-
-// --- Proxy route example ---
-// Replace TARGET_URL with any backend service you want to proxy
-const TARGET_URL = "https://example.com"; // Change if needed
-app.use(
-  "/proxy",
-  createProxyMiddleware({
-    target: TARGET_URL,
-    changeOrigin: true,
-    pathRewrite: { "^/proxy": "" }
-  })
-);
-
-// Health check
+// --- Health check endpoint ---
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Euphoria backend running!" });
 });
 
-// Catch-all route to serve frontend for SPA
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+// --- Profile endpoint ---
+app.get("/profile", (req, res) => {
+  const username = req.query.username;
+  if (!username) {
+    return res.status(400).json({ error: "Missing username" });
+  }
+
+  // Example: return dummy data
+  const profileData = {
+    username,
+    level: Math.floor(Math.random() * 100),
+    coins: Math.floor(Math.random() * 1000),
+    achievements: ["First login", "Welcome badge"]
+  };
+
+  res.json(profileData);
 });
 
-// Start server
+// --- Serve static frontend files ---
+app.use(express.static("."));
+
+// --- Fallback to index.html for SPA routes ---
+app.get("*", (req, res) => {
+  res.sendFile(`${process.cwd()}/index.html`);
+});
+
+// --- Start server ---
 app.listen(PORT, () => {
   console.log(`✅ Euphoria backend running on port ${PORT}`);
 });
