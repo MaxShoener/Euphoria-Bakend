@@ -1,20 +1,29 @@
-# Use official Node.js LTS
-FROM node:22
+# Use official Node.js
+FROM node:22-slim
 
-# Set working directory
+# Install dependencies needed for Playwright
+RUN apt-get update && apt-get install -y \
+    wget unzip fonts-liberation libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdbus-1-3 libdrm2 libxkbcommon0 libxcomposite1 \
+    libxdamage1 libxfixes3 libxrandr2 libgbm1 libgtk-3-0 \
+    libasound2 libnss3 xvfb && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set workdir
 WORKDIR /app
 
-# Copy package files
+# Copy package.json and install
 COPY package*.json ./
+RUN npm install
 
-# Install dependencies
-RUN npm install --omit=dev
+# Force playwright to install Chromium at build time
+RUN npx playwright install --with-deps chromium
 
-# Copy app files
+# Copy the rest of the app
 COPY . .
 
-# Expose backend port
-EXPOSE 3000
+# Expose the port Render expects
+EXPOSE 10000
 
-# Start app
+# Start backend
 CMD ["npm", "start"]
