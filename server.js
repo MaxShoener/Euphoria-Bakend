@@ -13,18 +13,25 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
 
-// Proxy endpoint for all web requests from frontend
-app.use("/proxy", createProxyMiddleware({
-    target: "https://www.google.com",
-    changeOrigin: true,
-    pathRewrite: { "^/proxy": "" }
-}));
-
-// Serve frontend
+// Serve the frontend
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// Proxy any requested URL
+app.use("/proxy", createProxyMiddleware({
+  target: "https://www.google.com",
+  changeOrigin: true,
+  pathRewrite: (path, req) => {
+    // Forward the `url` query parameter
+    const url = req.query.url || "https://www.google.com";
+    return url.replace(/^https?:\/\//, "");
+  },
+  router: (req) => {
+    return req.query.url || "https://www.google.com";
+  }
+}));
+
 app.listen(PORT, () => {
-    console.log(`✅ Euphoria backend running on port ${PORT}`);
+  console.log(`✅ Euphoria backend running on port ${PORT}`);
 });
