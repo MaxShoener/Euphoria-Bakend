@@ -1,43 +1,65 @@
 import express from "express";
 import cors from "cors";
-import { chromium } from "playwright";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import url from "url";
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// --- Browser endpoint ---
-app.get("/browse", async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send("Missing url parameter");
+// ✅ Health check
+app.get("/", (req, res) => {
+  res.send("✅ Euphoria backend running!");
+});
+
+/**
+ * 🔄 Dynamic Proxy:
+ * Usage:
+ *   /proxy?url=https://www.google.com/search?q=test
+ */
+app.use("/proxy", (req, res, next) => {
+  const targetUrl = req.query.url;
+
+  if (!targetUrl) {
+    return res.status(400).json({ error: "Missing ?url= query parameter" });
+  }
 
   try {
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-    const content = await page.content();
-    await browser.close();
-    res.send(content);
+    const parsedUrl = new url.URL(targetUrl);
+
+    return createProxyMiddleware({
+      target: `${parsedUrl.protocol}//${parsedUrl.host}`,
+      changeOrigin: true,
+      secure: true,
+      followRedirects: true,
+      pathRewrite: {
+        "^/proxy": "", // Remove /proxy prefix
+      },
+      router: () => parsedUrl.origin, // Ensure proper host
+      onProxyReq: (proxyReq, req) => {
+        // Rebuild path for correct routing
+        proxyReq.path = parsedUrl.pathname + (parsedUrl.search || "");
+      },
+      onError: (err, req, res) => {
+        console.error("❌ Proxy error:", err.message);
+        res.status(502).json({ error: "Proxy request failed" });
+      },
+    })(req, res, next);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Error loading page");
+    return res.status(400).json({ error: "Invalid URL" });
   }
 });
 
-// --- Proxy endpoint ---
-app.use(
-  "/proxy",
-  createProxyMiddleware({
-    target: "https://www.google.com", // example target
-    changeOrigin: true,
-    secure: false,
-    pathRewrite: { "^/proxy": "" }
-  })
-);
+// Example search test route (for debugging frontend)
+app.get("/search", (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: "Missing query" });
+  res.json({ result: `You searched for: ${q}` });
+});
 
+// ✅ Start server
 app.listen(PORT, () => {
-  console.log(`✅ Euphoria backend running on port ${PORT}`);
+  console.log(`🚀 Euphoria backend running on port ${PORT}`);
 });
