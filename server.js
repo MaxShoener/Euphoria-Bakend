@@ -7,43 +7,17 @@ import cors from "cors";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Allow frontend to connect
 app.use(cors({ origin: "*" }));
 
-// ✅ Simple health check
+// ✅ Health check
 app.get("/", (req, res) => {
   res.send("✅ Euphoria Backend is running");
 });
 
 /**
- * 🔹 Proxy middleware
- * Handles HTTPS sites, Google, Xbox, Microsoft login, etc.
+ * 🔹 Dynamic proxy route
  */
-const proxy = createProxyMiddleware({
-  changeOrigin: true,
-  ws: true,
-  secure: false, // disable strict cert checking (fixes altname mismatch)
-  onProxyReq: (proxyReq, req) => {
-    // Force Host header to match target site
-    if (req.query.url) {
-      try {
-        const target = new URL(req.query.url);
-        proxyReq.setHeader("host", target.host);
-      } catch (err) {
-        console.error("Invalid target URL:", req.query.url);
-      }
-    }
-  },
-  onError: (err, req, res) => {
-    console.error("Proxy Error:", err.message);
-    if (!res.headersSent) {
-      res.status(502).send("Error loading page.");
-    }
-  },
-});
-
-// ✅ Handle browsing requests
-app.get("/browse", (req, res, next) => {
+app.use("/browse", (req, res, next) => {
   const targetUrl = req.query.url;
   if (!targetUrl) {
     return res.status(400).send("Missing url query parameter");
@@ -52,19 +26,36 @@ app.get("/browse", (req, res, next) => {
   try {
     const target = new URL(targetUrl);
 
-    // Dynamically proxy to the requested target
-    proxy({ target: target.origin })(req, res, next);
+    // Create proxy on the fly with correct target
+    return createProxyMiddleware({
+      target: target.origin,
+      changeOrigin: true,
+      ws: true,
+      secure: false, // avoid TLS altname mismatch
+      pathRewrite: {
+        "^/browse": "" // forward everything after /browse
+      },
+      onProxyReq: (proxyReq) => {
+        proxyReq.setHeader("host", target.host);
+      },
+      onError: (err, req, res) => {
+        console.error("Proxy Error:", err.message);
+        if (!res.headersSent) {
+          res.status(502).send("Error loading page.");
+        }
+      }
+    })(req, res, next);
   } catch (err) {
     console.error("Invalid URL:", targetUrl);
     res.status(400).send("Invalid URL");
   }
 });
 
-// ✅ WebSocket proxying for live connections
+// ✅ WebSocket support
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", (ws) => {
   console.log("New WebSocket connection");
   ws.on("message", (msg) => {
     console.log("WS message:", msg.toString());
