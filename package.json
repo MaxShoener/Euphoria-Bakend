@@ -18,7 +18,8 @@
     "cheerio": "^1.0.0-rc.12",
     "http-proxy-middleware": "^3.0.0",
     "body-parser": "^1.20.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "pino": "^8.16.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
