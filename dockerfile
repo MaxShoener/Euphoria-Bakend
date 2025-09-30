@@ -1,29 +1,48 @@
-# Use official Node.js
-FROM node:22-slim
+# Dockerfile (Debian-based) — installs Chromium and runs the app
+FROM node:20-bullseye-slim
 
-# Install dependencies needed for Playwright
-RUN apt-get update && apt-get install -y \
-    wget unzip fonts-liberation libatk1.0-0 libatk-bridge2.0-0 \
-    libcups2 libdbus-1-3 libdrm2 libxkbcommon0 libxcomposite1 \
-    libxdamage1 libxfixes3 libxrandr2 libgbm1 libgtk-3-0 \
-    libasound2 libnss3 xvfb && \
-    rm -rf /var/lib/apt/lists/*
+# install dependencies to run chromium
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    fonts-liberation \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    unzip \
+ && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
-WORKDIR /app
+# Install chromium (from Debian repos)
+RUN apt-get update && apt-get install -y chromium --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
 
-# Copy package.json and install
+# Create app dir
+WORKDIR /usr/src/app
 COPY package*.json ./
-RUN npm install
+# install dependencies (puppeteer-core avoids downloading chromium)
+RUN npm ci --only=production
 
-# Force playwright to install Chromium at build time
-RUN npx playwright install --with-deps chromium
-
-# Copy the rest of the app
+# copy app
 COPY . .
 
-# Expose the port Render expects
-EXPOSE 10000
+# Set CHROME_PATH environment variable so puppeteer-core can use system chromium
+ENV CHROME_PATH=/usr/bin/chromium
 
-# Start backend
-CMD ["npm", "start"]
+# optional: tune node environment
+ENV NODE_ENV=production
+ENV PORT=8080
+
+EXPOSE 8080
+CMD ["node", "server.js"]
