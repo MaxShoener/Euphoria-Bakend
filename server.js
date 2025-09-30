@@ -1,8 +1,8 @@
 import express from 'express';
+import fetch from 'node-fetch';
+import { chromium } from 'playwright-core';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fetch from 'node-fetch';
-import { chromium } from 'playwright';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,45 +10,37 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-let browser;
+// Serve static frontend (if any)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve frontend
-app.use(express.static(__dirname));
-
-// Launch Chromium
-(async () => {
-  browser = await chromium.launch({ headless: true, executablePath: undefined });
-})();
-
-// Proxy /browse requests
+// /browse endpoint: load a URL in headless Chromium and return HTML
 app.get('/browse', async (req, res) => {
-  let url = req.query.url;
-  if (!url) return res.status(400).send('Missing ?url=');
+  const url = req.query.url;
+  if (!url) return res.status(400).send('Missing ?url parameter');
 
+  let browser;
   try {
-    // Decode URL from frontend
-    url = decodeURIComponent(url);
+    // Use system Chromium installed on Render
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium-browser' // Render's system path
+    });
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-    // Use Playwright to fetch content
-    const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-    // Rewrite links to go through proxy
-    const content = await page.content();
-    const proxiedContent = content.replace(
-      /(?:href|src)="(https?:\/\/[^"]+)"/g,
-      (match, p1) => {
-        return match.replace(p1, `/browse?url=${encodeURIComponent(p1)}`);
-      }
-    );
-
-    await page.close();
-    res.send(proxiedContent);
-
+    const html = await page.content();
+    res.send(html);
   } catch (err) {
-    console.error('Error loading page:', err);
+    console.error(err);
     res.status(500).send('Error loading page');
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Backend running at http://localhost:${PORT}`));
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Backend running at http://localhost:${PORT}`);
+});
