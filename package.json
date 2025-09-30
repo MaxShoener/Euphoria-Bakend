@@ -1,21 +1,25 @@
 {
-  "name": "euphoria-backend",
-  "version": "0.1.0",
+  "name": "euphoria-proxy",
+  "version": "1.0.0",
+  "description": "Euphoria — HTML-based proxy using Puppeteer/Chromium backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:dev": "NODE_ENV=development node server.js"
+    "dev": "nodemon server.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "puppeteer-core": "^21.0.0",
-    "cheerio": "^1.0.0-rc.12",
-    "node-fetch": "^3.4.1",
-    "mime-types": "^2.1.35",
-    "pino": "^8.16.0",
-    "p-limit": "^4.0.0"
+    "express": "^4.19.2",
+    "puppeteer-core": "^22.6.1",
+    "@puppeteer/browsers": "^2.3.0",
+    "node-fetch": "3.3.2", 
+    "http-proxy-middleware": "^3.0.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
   }
 }
