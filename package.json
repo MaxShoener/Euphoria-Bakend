@@ -14,7 +14,8 @@
     "express": "^4.19.2",
     "puppeteer-core": "^22.6.1",
     "@puppeteer/browsers": "^2.3.0",
-    "node-fetch": "3.3.2", 
+    "node-fetch": "3.3.2",
+    "cheerio": "^1.0.0-rc.12",
     "http-proxy-middleware": "^3.0.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5"
