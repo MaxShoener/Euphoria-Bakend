@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/playwright:focal
 
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
