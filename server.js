@@ -11,8 +11,7 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    console.log("Chromium executable path:", chromium.executablePath()); // LOG PATH
-
+    // Launch Chromium in headless mode with sandbox disabled
     browser = await chromium.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
@@ -20,6 +19,7 @@ app.get("/proxy", async (req, res) => {
     const page = await browser.newPage();
     await page.goto(decodeURIComponent(targetUrl), { waitUntil: "networkidle" });
     const content = await page.content();
+
     res.send(content);
   } catch (err) {
     console.error("Proxy failed:", err);
