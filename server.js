@@ -1,8 +1,8 @@
 const express = require("express");
 const cors = require("cors");
-const { chromium } = require("playwright"); // Playwright browser
-const app = express();
+const { chromium } = require("playwright"); // Chromium from Playwright
 
+const app = express();
 app.use(cors());
 
 // /proxy route
@@ -12,8 +12,10 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
-    // Launch headless Chromium
-    browser = await chromium.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    // Launch Chromium in headless mode with no-sandbox (required for containers)
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
     const page = await browser.newPage();
 
     await page.goto(decodeURIComponent(targetUrl), { waitUntil: "networkidle" });
