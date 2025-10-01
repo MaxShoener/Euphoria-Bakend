@@ -1,19 +1,3 @@
-import express from "express";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
-import { chromium } from "playwright";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Serve frontend (only index.html inside /public)
-app.use(express.static(path.join(__dirname, "public")));
-
-// Playwright proxy
 app.get("/proxy", async (req, res) => {
   let targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing ?url=");
@@ -31,18 +15,25 @@ app.get("/proxy", async (req, res) => {
     const page = await context.newPage();
 
     await page.goto(targetUrl, { waitUntil: "networkidle" });
+
+    // Intercept requests for resources and rewrite them
     const content = await page.content();
 
     await browser.close();
 
+    // Rewrite relative URLs to go through our proxy again
+    const rewritten = content.replace(
+      / (href|src|action)=["'](?!https?:\/\/|data:|#)([^"']+)["']/gi,
+      (match, attr, link) => {
+        const absolute = new URL(link, targetUrl).href;
+        return ` ${attr}="/proxy?url=${encodeURIComponent(absolute)}"`;
+      }
+    );
+
     res.set("content-type", "text/html");
-    res.send(content);
+    res.send(rewritten);
   } catch (err) {
     console.error("Playwright error:", err);
     res.status(500).send("Proxy failed: " + err.message);
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`✅ Euphoria Playwright proxy running on port ${PORT}`);
 });
