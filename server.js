@@ -11,9 +11,12 @@ app.get("/proxy", async (req, res) => {
 
   let browser;
   try {
+    console.log("Chromium executable path:", chromium.executablePath()); // LOG PATH
+
     browser = await chromium.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
+
     const page = await browser.newPage();
     await page.goto(decodeURIComponent(targetUrl), { waitUntil: "networkidle" });
     const content = await page.content();
