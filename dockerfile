@@ -1,26 +1,17 @@
-# Use Node Alpine for small image
-FROM node:20-alpine
-
-# Install dependencies for Chromium
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    nodejs \
-    npm \
-    bash \
-    curl
+# Use Playwright official image with all browsers preinstalled
+FROM mcr.microsoft.com/playwright:focal
 
 WORKDIR /app
+
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
+
+# Copy server code
 COPY . .
 
-# Set Chromium path environment variable
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
+# Expose port
 EXPOSE 4000
-CMD ["npm", "start"]
+
+# Start the server
+CMD ["node", "server.js"]
