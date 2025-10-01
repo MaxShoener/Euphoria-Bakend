@@ -1,26 +1,22 @@
 const express = require("express");
 const cors = require("cors");
-const { chromium } = require("playwright"); // Chromium from Playwright
+const { chromium } = require("playwright");
 
 const app = express();
 app.use(cors());
 
-// /proxy route
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url");
 
   let browser;
   try {
-    // Launch Chromium in headless mode with no-sandbox (required for containers)
     browser = await chromium.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
-
     await page.goto(decodeURIComponent(targetUrl), { waitUntil: "networkidle" });
     const content = await page.content();
-
     res.send(content);
   } catch (err) {
     console.error("Proxy failed:", err);
