@@ -1,9 +1,17 @@
-FROM node:22-slim
+FROM node:22
 
+# Create app dir
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
+
+# Copy files
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Copy rest of the app
 COPY . .
 
+# Expose port
 EXPOSE 10000
+
+# Start app
 CMD ["npm", "start"]
