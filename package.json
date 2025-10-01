@@ -1,6 +1,7 @@
 {
   "name": "euphoria-backend",
   "version": "1.0.0",
+  "description": "Euphoria Proxy Backend with UV + Scramjet",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,5 +13,8 @@
     "node-fetch": "^2.6.7",
     "@titaniumnetwork-dev/ultraviolet": "latest",
     "@titaniumnetwork-dev/scramjet": "https://github.com/titaniumnetwork-dev/scramjet.git"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
