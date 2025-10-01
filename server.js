@@ -13,6 +13,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static("public")); // serves index.html
 
+// POST /proxy endpoint
 app.post("/proxy", async (req, res) => {
   const { url, mode } = req.body;
 
