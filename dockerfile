@@ -1,17 +1,9 @@
-# Use official Playwright image with browsers preinstalled
-FROM mcr.microsoft.com/playwright:focal
+FROM node:22-slim
 
 WORKDIR /app
-
-# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
-
-# Copy server code
+RUN npm install --omit=dev
 COPY . .
 
-# Expose port
-EXPOSE 4000
-
-# Run server
-CMD ["node", "server.js"]
+EXPOSE 10000
+CMD ["npm", "start"]
