@@ -2,9 +2,11 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Install git (needed for GitHub packages)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 
-# Install dependencies (GitHub installs work)
 RUN npm install
 
 COPY . .
