@@ -1,40 +1,51 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
+const path = require("path");
+const fetch = require("node-fetch");
 
-// Titanium Network proxies
-const UV = require("@titaniumnetwork-dev/ultraviolet");
-const Scramjet = require("@titaniumnetwork-dev/scramjet");
+const { createBareServer } = require("@tomphttp/bare-server-node");
+const { uvPath, UVServer } = require("@titaniumnetwork-dev/ultraviolet");
+const scramjet = require("@titaniumnetwork-dev/scramjet");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const bare = createBareServer("/bare/");
 
 app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static("public")); // serves index.html
+app.use(express.static(path.join(__dirname)));
 
-// POST /proxy endpoint
-app.post("/proxy", async (req, res) => {
-  const { url, mode } = req.body;
+// Ultraviolet
+const uv = new UVServer({
+  prefix: "/proxy/uv/",
+  bare: "/bare/",
+});
+app.use(uvPath, uv.app);
 
-  if (!url) return res.status(400).send("Missing URL");
-
+// Scramjet route
+app.get("/proxy/scramjet/:url", async (req, res) => {
   try {
-    if (mode === "uv") {
-      const uv = new UV();
-      return uv.request(url, req, res);
-    } else if (mode === "scramjet") {
-      const scramjet = new Scramjet();
-      return scramjet.request(url, req, res);
-    } else {
-      return res.status(400).send("Invalid proxy mode. Use 'uv' or 'scramjet'.");
-    }
+    const target = decodeURIComponent(req.params.url);
+    const response = await scramjet.fetch(target);
+    const text = await response.text();
+
+    res.set("content-type", response.headers.get("content-type") || "text/html");
+    res.send(text);
   } catch (err) {
-    console.error("Proxy error:", err);
-    res.status(500).send("Proxy failed: " + err.message);
+    res.status(500).send("Scramjet Error: " + err.message);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Euphoria backend running on port ${PORT}`);
+// Serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+const PORT = process.env.PORT || 3000;
+
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+// Bare server upgrade (needed for UV)
+server.on("upgrade", (req, socket, head) => {
+  bare.handleUpgrade(req, socket, head);
 });
