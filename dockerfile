@@ -1,17 +1,20 @@
-FROM node:22
+# Use Node.js 18+ slim
+FROM node:20-slim
 
-# Create app dir
+# Set working directory
 WORKDIR /app
 
-# Copy files
-COPY package.json package-lock.json* ./
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy rest of the app
+# Copy source
 COPY . .
 
-# Expose port
-EXPOSE 10000
+# Expose the port Koyeb provides
+EXPOSE 3000
 
-# Start app
+# Start the app
 CMD ["npm", "start"]
