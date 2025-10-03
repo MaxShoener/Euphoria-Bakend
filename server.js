@@ -1,37 +1,43 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
-import { createScramjetProxy } from "@titaniumnetwork-dev/scramjet";
-import { createUVProxy } from "@titaniumnetwork-dev/ultraviolet";
+
+import Scramjet from "@titaniumnetwork-dev/scramjet";
+import Ultraviolet from "@titaniumnetwork-dev/ultraviolet";
 
 const app = express();
 app.use(cors());
-app.use(express.static("public"));
+app.use(express.static("public")); // Serves index.html
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 10000;
 
-// Scramjet and UV proxies
-const scramjetProxy = createScramjetProxy();
-const uvProxy = createUVProxy();
+// Toggle proxy engine: "scramjet" or "ultraviolet"
+const PROXY_ENGINE = process.env.PROXY_ENGINE || "scramjet";
 
-// /proxy endpoint with engine selection
 app.get("/proxy", async (req, res) => {
-  const { url, engine } = req.query;
-  if (!url) return res.status(400).send("Missing url");
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Missing url parameter");
 
   try {
-    if (engine === "uv") {
-      uvProxy.web(req, res, { target: decodeURIComponent(url) });
+    let responseText;
+
+    if (PROXY_ENGINE === "scramjet") {
+      const stream = new Scramjet.HttpRequest(targetUrl);
+      responseText = await stream.getText();
+    } else if (PROXY_ENGINE === "ultraviolet") {
+      const uv = new Ultraviolet(targetUrl);
+      responseText = await uv.getText();
     } else {
-      // default to Scramjet
-      scramjetProxy.web(req, res, { target: decodeURIComponent(url) });
+      return res.status(500).send("Invalid PROXY_ENGINE");
     }
+
+    res.send(responseText);
   } catch (err) {
-    console.error("Proxy failed:", err);
+    console.error(err);
     res.status(500).send("Proxy failed: " + err.message);
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+  console.log(`Backend running on port ${PORT} using ${PROXY_ENGINE}`);
 });
