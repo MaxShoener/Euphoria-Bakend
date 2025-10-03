@@ -1,7 +1,7 @@
 {
-  "name": "scramjet-proxy",
+  "name": "dual-proxy",
   "version": "1.0.0",
-  "description": "Titanium Network Scramjet proxy running on Express",
+  "description": "Dual proxy with Titanium Network Scramjet and Ultraviolet",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,6 +9,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "morgan": "^1.10.0",
-    "@titaniumnetwork-dev/scramjet": "github:titaniumnetwork-dev/scramjet"
+    "@titaniumnetwork-dev/scramjet": "github:titaniumnetwork-dev/scramjet",
+    "@titaniumnetwork-dev/ultraviolet": "github:titaniumnetwork-dev/ultraviolet"
   }
 }
