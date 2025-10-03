@@ -1,15 +1,15 @@
 {
-  "name": "dual-proxy",
+  "name": "euphoria-backend",
   "version": "1.0.0",
-  "description": "Dual proxy with Titanium Network Scramjet and Ultraviolet",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "@titaniumnetwork-dev/scramjet": "github:TitaniumNetwork-Dev/scramjet",
+    "@titaniumnetwork-dev/ultraviolet": "github:TitaniumNetwork-Dev/ultraviolet",
     "express": "^4.18.2",
-    "morgan": "^1.10.0",
-    "@titaniumnetwork-dev/scramjet": "github:titaniumnetwork-dev/scramjet",
-    "@titaniumnetwork-dev/ultraviolet": "github:titaniumnetwork-dev/ultraviolet"
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
   }
 }
