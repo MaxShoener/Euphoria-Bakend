@@ -1,39 +1,32 @@
 import express from "express";
-import uvPkg from "ultraviolet";
-const { BareServer } = uvPkg;
-import { StringStream } from "scramjet";
+import Scramjet from "scramjet";
+import Ultraviolet from "ultraviolet";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// CORS headers so frontend via file:/// can fetch
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
+// Serve static files if needed
+app.use(express.static("public"));
+
+// Example endpoint streaming numbers using Scramjet
+app.get("/stream", async (req, res) => {
+  const { StringStream } = Scramjet;
+  const numbers = new StringStream([...Array(1000).keys()].map(n => n + "\n"));
+
+  numbers.pipe(res);
 });
 
-app.use(express.json());
-
-// Basic API route
-app.get("/api/hi", (req, res) => {
-  res.json({ message: "Hi from Euphoria backend!" });
+// Example endpoint using Ultraviolet for string manipulation
+app.get("/uppercase", (req, res) => {
+  const result = Ultraviolet.encode("Hello from Ultraviolet!");
+  res.send(result);
 });
 
-// Example Scramjet processing
-app.post("/api/echo", async (req, res) => {
-  try {
-    const dataStream = new StringStream(JSON.stringify(req.body));
-    const result = await dataStream.map(chunk => chunk.toUpperCase()).toArray();
-    res.json({ processed: result.join("") });
-  } catch (err) {
-    res.status(500).json({ error: err.toString() });
-  }
+// Basic health endpoint
+app.get("/hi", (req, res) => {
+  res.send("Hi! Backend is running ✅");
 });
 
-const server = new BareServer(app);
-server.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Backend listening at http://localhost:${port}`);
 });
