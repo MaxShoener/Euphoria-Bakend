@@ -1,71 +1,41 @@
-// server.js - Fully functional Euphoria backend
-// Node.js 20+, Express-based minimal API
 import express from "express";
+import { BareServer } from "ultraviolet"; // Ultraviolet server
+import { StringStream } from "scramjet";   // Scramjet stream processing
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===========================
-// MIDDLEWARE
-// ===========================
-
-// Enable JSON parsing
 app.use(express.json());
 
-// Enable CORS for file:// frontend
+// CORS for frontend
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-// ===========================
-// ROUTES
-// ===========================
-
-// Root route
-app.get("/", (req, res) => {
-  res.send("Euphoria backend is alive!");
+// API endpoint: hi
+app.get("/api/hi", (req, res) => {
+  res.json({ message: "Hi from Euphoria backend using Ultraviolet & Scramjet!" });
 });
 
-// /api/hello returns simple "hi"
-app.get("/api/hello", (req, res) => {
-  res.send("hi");
+// API endpoint: echo using Scramjet stream
+app.post("/api/echo", async (req, res) => {
+  try {
+    const dataStream = new StringStream(JSON.stringify(req.body));
+    const result = await dataStream
+      .map(chunk => chunk.toUpperCase()) // Example processing
+      .toArray();
+    res.json({ processed: result.join("") });
+  } catch (err) {
+    res.status(500).json({ error: err.toString() });
+  }
 });
 
-// /api/time returns current server time
-app.get("/api/time", (req, res) => {
-  res.json({ time: new Date().toISOString() });
+// Wrap Express in Ultraviolet BareServer
+const server = new BareServer(app);
+server.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
 });
-
-// /api/echo echoes JSON POST body
-app.post("/api/echo", (req, res) => {
-  res.json({ youSent: req.body });
-});
-
-// Demo array route
-const messages = ["Hello", "Euphoria", "NodeJS"];
-app.get("/api/messages", (req, res) => {
-  res.json({ messages });
-});
-
-// ===========================
-// ERROR HANDLING
-// ===========================
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).send("Route not found");
-});
-
-// General error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send("Internal Server Error");
-});
-
-// ===========================
-// START SERVER
-// ===========================
-app.listen(PORT, () => console.log(`Backend running at http://localhost:${PORT}`));
