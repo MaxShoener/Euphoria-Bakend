@@ -1,34 +1,21 @@
-import express from "express";
-import cors from "cors";
-import { createServer as createHttpServer } from "http";
-import pkg from "@tomphttp/bare-server-node"; // <-- FIXED import
+// server.js
+import pkg from "@tomphttp/bare-server-node";
 const { BareServer } = pkg;
 
+import express from "express";
+import cors from "cors";
+
 const app = express();
-const port = process.env.PORT || 8080;
+app.use(cors());
+app.use(express.json());
 
-// Create Bare proxy
-const bare = new BareServer({ log: false });
-const httpServer = createHttpServer();
-
-// Allow cross-origin requests (so file:/// frontend can connect)
-app.use(cors({ origin: "*" }));
-
-// Root endpoint
-app.get("/", (req, res) => {
-  res.send("✅ Euphoria backend running correctly with Bare proxy (CJS-compatible)");
+// Example endpoint
+app.get("/api/hello", (req, res) => {
+  res.json({ message: "Hello from backend!" });
 });
 
-// Route bare proxy requests
-httpServer.on("request", (req, res) => {
-  if (bare.shouldRoute(req)) {
-    bare.routeRequest(req, res);
-  } else {
-    app(req, res);
-  }
-});
+const port = process.env.PORT || 3000;
 
-// Start server
-httpServer.listen(port, () => {
-  console.log(`✅ Euphoria backend is live on port ${port}`);
+app.listen(port, () => {
+  console.log(`Backend running at http://localhost:${port}`);
 });
