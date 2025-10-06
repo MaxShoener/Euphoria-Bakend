@@ -6,8 +6,8 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@tomphttp/bare-server-node": "^1.0.0",
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "ultraviolet": "^0.13.0",
+    "scramjet": "^4.9.0"
   }
 }
