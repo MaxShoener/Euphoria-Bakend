@@ -1,45 +1,33 @@
 import express from "express";
 import cors from "cors";
-import { createBareServer } from "ultraviolet-static/bare/server.js";
-import { pipeline } from "scramjet";
+import { createServer as createHttpServer } from "http";
+import { BareServer } from "@tomphttp/bare-server-node";
 
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Allow frontend file:/// and CORS from anywhere
+// Bare proxy (replaces broken ultraviolet-static import)
+const bare = new BareServer({ log: false });
+const httpServer = createHttpServer();
+
+// Allow everything (file:/// etc.)
 app.use(cors({ origin: "*" }));
 
-// ===== Ultraviolet Proxy =====
-const bare = createBareServer("/uv/");
-app.use("/uv/", (req, res, next) => {
-  bare.handleRequest(req, res, next);
+// Basic root route
+app.get("/", (req, res) => {
+  res.send("✅ Euphoria backend running correctly with Bare proxy");
 });
 
-// ===== Scramjet Proxy (example echo pipeline) =====
-app.get("/scramjet", async (req, res) => {
-  try {
-    const { PassThrough } = await import("stream");
-    const { StringStream } = await import("scramjet");
-
-    const stream = new PassThrough();
-    const result = await StringStream.from(["Connected to Scramjet proxy!"])
-      .append("\n")
-      .toStringStream()
-      .run();
-
-    res.setHeader("Content-Type", "text/plain");
-    res.end(result);
-  } catch (err) {
-    res.status(500).send("Scramjet proxy error: " + err.message);
+// Bare proxy route
+httpServer.on("request", (req, res) => {
+  if (bare.shouldRoute(req)) {
+    bare.routeRequest(req, res);
+  } else {
+    app(req, res);
   }
 });
 
-// ===== Basic Info Route =====
-app.get("/", (req, res) => {
-  res.send("Euphoria backend running ✅");
-});
-
-// ===== Start Server =====
-app.listen(port, () => {
-  console.log(`✅ Euphoria backend live on port ${port}`);
+// Start combined server
+httpServer.listen(port, () => {
+  console.log(`✅ Euphoria backend is live on port ${port}`);
 });
