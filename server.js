@@ -6,8 +6,7 @@ import { StringStream } from "scramjet";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-
+// CORS headers so frontend via file:/// can fetch
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -16,10 +15,14 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(express.json());
+
+// Basic API route
 app.get("/api/hi", (req, res) => {
   res.json({ message: "Hi from Euphoria backend!" });
 });
 
+// Example Scramjet processing
 app.post("/api/echo", async (req, res) => {
   try {
     const dataStream = new StringStream(JSON.stringify(req.body));
