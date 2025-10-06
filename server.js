@@ -1,43 +1,45 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
-
-import Scramjet from "@titaniumnetwork-dev/scramjet";
-import Ultraviolet from "@titaniumnetwork-dev/ultraviolet";
+import { createBareServer } from "ultraviolet-static/bare/server.js";
+import { pipeline } from "scramjet";
 
 const app = express();
-app.use(cors());
-app.use(express.static("public")); // Serves index.html
+const port = process.env.PORT || 8080;
 
-const PORT = process.env.PORT || 10000;
+// Allow frontend file:/// and CORS from anywhere
+app.use(cors({ origin: "*" }));
 
-// Toggle proxy engine: "scramjet" or "ultraviolet"
-const PROXY_ENGINE = process.env.PROXY_ENGINE || "scramjet";
+// ===== Ultraviolet Proxy =====
+const bare = createBareServer("/uv/");
+app.use("/uv/", (req, res, next) => {
+  bare.handleRequest(req, res, next);
+});
 
-app.get("/proxy", async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send("Missing url parameter");
-
+// ===== Scramjet Proxy (example echo pipeline) =====
+app.get("/scramjet", async (req, res) => {
   try {
-    let responseText;
+    const { PassThrough } = await import("stream");
+    const { StringStream } = await import("scramjet");
 
-    if (PROXY_ENGINE === "scramjet") {
-      const stream = new Scramjet.HttpRequest(targetUrl);
-      responseText = await stream.getText();
-    } else if (PROXY_ENGINE === "ultraviolet") {
-      const uv = new Ultraviolet(targetUrl);
-      responseText = await uv.getText();
-    } else {
-      return res.status(500).send("Invalid PROXY_ENGINE");
-    }
+    const stream = new PassThrough();
+    const result = await StringStream.from(["Connected to Scramjet proxy!"])
+      .append("\n")
+      .toStringStream()
+      .run();
 
-    res.send(responseText);
+    res.setHeader("Content-Type", "text/plain");
+    res.end(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Proxy failed: " + err.message);
+    res.status(500).send("Scramjet proxy error: " + err.message);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT} using ${PROXY_ENGINE}`);
+// ===== Basic Info Route =====
+app.get("/", (req, res) => {
+  res.send("Euphoria backend running ✅");
+});
+
+// ===== Start Server =====
+app.listen(port, () => {
+  console.log(`✅ Euphoria backend live on port ${port}`);
 });
