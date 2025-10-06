@@ -1,18 +1,17 @@
-# Use Node 20 LTS
-FROM node:20
+FROM node:20-bullseye
 
-# Set working directory
+# Install build tools for Scramjet & Ultraviolet
+RUN apt-get update && \
+    apt-get install -y git python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy package.json and install dependencies
 COPY package.json ./
 RUN npm install
 
-# Copy backend source
 COPY server.js ./
+COPY index.html ./public/
 
-# Expose port
 EXPOSE 3000
-
-# Start backend
 CMD ["node", "server.js"]
