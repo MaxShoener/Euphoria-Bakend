@@ -1,17 +1,20 @@
-FROM node:20-bullseye
+# Use an official Node image
+FROM node:20-slim
 
-# Install build tools for Scramjet & Ultraviolet
-RUN apt-get update && \
-    apt-get install -y git python3 make g++ && \
-    rm -rf /var/lib/apt/lists/*
+# Avoid interactive tzdata issues
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install git in case you later switch to packages requiring it (small footprint)
+RUN apt-get update && apt-get install -y git ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Copy package descriptor, install deps
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --no-fund
 
-COPY server.js ./
-COPY index.html ./public/
+# Copy source
+COPY . .
 
 EXPOSE 3000
 CMD ["node", "server.js"]
