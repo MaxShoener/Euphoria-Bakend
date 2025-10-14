@@ -1,58 +1,39 @@
 import express from "express";
 import fetch from "node-fetch";
+import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+app.use(cors());
+app.use(express.json());
 
-let currentEngine = "ultraviolet";
+let currentEngine = "ultraviolet"; // default engine
 
-// CORS middleware
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", engine: currentEngine });
-});
-
-// Switch engine
 app.get("/engine", (req, res) => {
-  const set = (req.query.set || "").toLowerCase();
-  if (set && ["ultraviolet", "scramjet"].includes(set)) {
-    currentEngine = set;
-    return res.json({ engine: currentEngine });
-  }
   res.json({ engine: currentEngine });
 });
 
-// Proxy route
-app.get("/proxy", async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).json({ error: "Missing url" });
-
-  try {
-    const response = await fetch(target, {
-      headers: {
-        "User-Agent": "EuphoriaProxy/1.2",
-        "Accept": "*/*"
-      }
-    });
-
-    const contentType = response.headers.get("content-type") || "text/html";
-    res.setHeader("Content-Type", contentType);
-    const buffer = await response.arrayBuffer();
-    res.send(Buffer.from(buffer));
-  } catch (err) {
-    console.error("Proxy fetch error:", err.message);
-    res.status(502).json({ error: "Failed to fetch target", detail: err.message });
+app.post("/engine", (req, res) => {
+  const { engine } = req.body;
+  if (["ultraviolet", "scramjet"].includes(engine)) {
+    currentEngine = engine;
+    res.json({ engine: currentEngine });
+  } else {
+    res.status(400).json({ error: "Invalid engine" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Euphoria backend running on port ${PORT}`);
+app.get("/proxy", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send("Missing URL");
+
+  try {
+    const response = await fetch(url, { timeout: 10000 });
+    const text = await response.text();
+    res.send(text);
+  } catch (err) {
+    res.status(500).send("Engine may be temporarily down.");
+  }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
